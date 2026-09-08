@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+
+# Thunderstore zips from package.ps1. Rebuildable from the tagged source, and a binary
+# nobody can diff.
+dist/
+
+# Local IDE / user files
+*.user
+*.suo
+.vs/
+.idea/
+
+# BepInEx test profile: third-party binaries, not ours to redistribute.
+# Recreate by copying the BepInEx tree from any existing profile.
+testprofile/
+
+# Thunderstore packaging: staging folder and the zips tcli writes.
+package/
+build/
+
+# Preview renders. Regenerable from the build script, and a diff of binaries hides the one
+# that was actually worked on. Hand-modelled .obj / .col / .png assets ARE committed.
+renders/

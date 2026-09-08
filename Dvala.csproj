@@ -1,0 +1,93 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The suite's project shape. Every mod here is this file with the four names changed:
+    AssemblyName, RootNamespace, Product, DeployDir.
+
+    net462 and no NuGet packages on purpose. The reference assemblies are on this machine
+    already, the game's managed DLLs are beside the game, and BepInEx's are inside whichever
+    profile is being deployed to - so a fresh clone builds with nothing to restore.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net462</TargetFramework>
+    <AssemblyName>Dvala</AssemblyName>
+    <RootNamespace>Dvala</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
+    <Authors>Robbin Thijssen</Authors>
+    <Company>Thijssen Software</Company>
+    <Product>Dvala</Product>
+    <Description>A dungeon left alone long enough fills back up.</Description>
+    <Copyright>Copyright (c) 2026 Robbin Thijssen</Copyright>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- No .pdb. It would be deployed beside the DLL and shipped in the Thunderstore zip. -->
+    <DebugType>none</DebugType>
+    <NoWarn>CS0649;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimDir>
+    <ManagedDir>$(ValheimDir)\valheim_Data\Managed</ManagedDir>
+    <!--
+      Defaults to this repo's own testprofile, so building alone tests the mod alone.
+      build-all.ps1 and package.ps1 override it with -p:ProfileDir=, which is how one source
+      tree serves "test one mod" and "play with all of them" and "assemble a zip".
+    -->
+    <ProfileDir Condition="'$(ProfileDir)' == ''">$(MSBuildProjectDirectory)\testprofile</ProfileDir>
+    <BepInExCore>$(ProfileDir)\BepInEx\core</BepInExCore>
+    <DeployDir>$(ProfileDir)\BepInEx\plugins\Dvala</DeployDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Private=false throughout: these are the game's and BepInEx's own assemblies, already
+      loaded in the process. Copying them next to the plugin would be shipping someone
+      else's DLLs and, worse, a second copy for the loader to disagree about.
+
+      Add what the mod actually touches. UnityEngine.PhysicsModule for raycasts,
+      UnityEngine.UI and UnityEngine.IMGUIModule for interface work, assembly_guiutils for
+      Localization. Do NOT add UnityEngine.ImageConversionModule - it targets netstandard 2.1
+      and fails here with CS1705; reach Texture2D.LoadImage by reflection instead.
+    -->
+    <Reference Include="assembly_valheim"><HintPath>$(ManagedDir)\assembly_valheim.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="assembly_utils"><HintPath>$(ManagedDir)\assembly_utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(ManagedDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(BepInExCore)\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExCore)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Core carries the version gate. Private=false on purpose - Core deploys its own DLL
+         to plugins\Core, and a second copy landing beside this one would be two assemblies
+         sharing one BepInPlugin GUID, which is a plugin that silently does not load. -->
+    <ProjectReference Include="..\core\Core.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!--
+    Assets, if the mod has any. Uncomment and drop .obj / .col / .png into assets\; load them
+    relative to Path.GetDirectoryName(typeof(X).Assembly.Location). Rejected design variants
+    belong in assets\variants\ so they are not copied - that folder is not matched here.
+
+  <ItemGroup>
+    <DvalaAsset Include="assets\*.obj;assets\*.col;assets\*.png" />
+  </ItemGroup>
+  -->
+
+  <!--
+    ContinueOnError, because the game holds the DLL open while it is running and a failed
+    copy must not fail the build. The cost is that a build against a locked DLL reports
+    success and changes nothing - which is exactly how a server was left a version behind
+    twice, and why sync-all.ps1 proves the three profiles match before starting anything.
+  -->
+  <Target Name="Deploy" AfterTargets="Build" Condition="Exists('$(ProfileDir)\BepInEx\plugins')">
+    <MakeDir Directories="$(DeployDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DeployDir)" ContinueOnError="true" />
+    <!-- <Copy SourceFiles="@(DvalaAsset)" DestinationFolder="$(DeployDir)" ContinueOnError="true" /> -->
+  </Target>
+
+</Project>

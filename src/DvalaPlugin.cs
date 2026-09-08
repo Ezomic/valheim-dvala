@@ -3,7 +3,7 @@ using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using Ezomic.Core;
-using HarmonyLib;
+using UnityEngine;
 
 namespace Dvala
 {
@@ -47,7 +47,15 @@ namespace Dvala
         /// </summary>
         internal static bool CorePresent;
 
-        private Harmony _harmony;
+        /// <summary>Real seconds since the last look. Not saved, and does not need to be.</summary>
+        private float _since;
+
+        /// <summary>
+        /// Set after the first exception out of the sweep, so a fault reports once instead of
+        /// once a tick. A throw in Update lands in Player.log rather than in BepInEx's own
+        /// log, where nobody looks first - so it is caught here and said out loud.
+        /// </summary>
+        private bool _faulted;
 
         private void Awake()
         {
@@ -61,11 +69,10 @@ namespace Dvala
 
             TryRegisterWithCore();
 
-            // PatchAll over a named type, never the whole assembly. A bare PatchAll() walks
-            // every type in the DLL, so a half-written patch class in another file goes live
-            // the moment it compiles.
-            _harmony = new Harmony(PluginGuid);
-            _harmony.PatchAll(typeof(DvalaPatches));
+            // No Harmony, and that is worth one line rather than an empty file. Dvala patches
+            // nothing: it reads dungeons the game has already loaded and writes to their own
+            // ZDOs on a timer. The one thing that would need a patch is holding a fully mined
+            // vein back from destroying itself, which is a decision nobody has made yet.
 
             // The startup line every mod in the suite writes. It is how a log answers "which
             // build of what is actually loaded" without anyone guessing.
@@ -127,11 +134,75 @@ namespace Dvala
             //     Suite.Data(File.ReadAllText(path));
         }
 
-        private void OnDestroy()
+        /// <summary>
+        /// The whole of the mod's timing. Cheap by construction: the tick reads one integer
+        /// off each loaded dungeon and compares it to the day, and the expensive part - the
+        /// component sweep in <see cref="Restore"/> - only runs for a dungeon that is actually
+        /// due, which is once per thirty days per dungeon.
+        /// </summary>
+        private void Update()
         {
-            // UnpatchSelf, never UnpatchAll(). The argumentless one unpatches every mod in
-            // the process, not just this one.
-            if (_harmony != null) _harmony.UnpatchSelf();
+            if (!DvalaConfig.Enabled.Value) return;
+
+            _since += Time.deltaTime;
+            if (_since < Mathf.Max(1f, DvalaConfig.CheckSeconds.Value)) return;
+            _since = 0f;
+
+            try
+            {
+                Sweep();
+            }
+            catch (System.Exception error)
+            {
+                if (_faulted) return;
+
+                _faulted = true;
+                Log.LogError("Dvala's sweep threw and will keep being attempted, but this is "
+                             + "reported once: " + error);
+            }
+        }
+
+        private void Sweep()
+        {
+            // Both are absent in the main menu and for a while after a world starts loading.
+            if (ZNetScene.instance == null || EnvMan.instance == null) return;
+
+            int today = Dungeons.Today();
+            if (today < 0) return;
+
+            int due = Mathf.Max(1, DvalaConfig.Days.Value);
+
+            foreach (DungeonGenerator generator in Dungeons.Live())
+            {
+                if (!Dungeons.Wanted(generator)) continue;
+
+                int stamped = Dungeons.Stamped(generator);
+
+                // First sight. Today, never day zero - see Dungeons for why an unstamped
+                // dungeon is not thirty days overdue the moment this mod is installed.
+                if (stamped < 0)
+                {
+                    Dungeons.Stamp(generator, today);
+                    continue;
+                }
+
+                if (today - stamped < due) continue;
+
+                // Occupied is asked last, so a dungeon somebody is standing in keeps its old
+                // stamp and comes back to this the moment they leave, rather than losing its
+                // turn for another thirty days.
+                if (DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator)) continue;
+
+                int touched = Restore.Dungeon(generator);
+                Dungeons.Stamp(generator, today);
+
+                if (DvalaConfig.Verbose.Value || touched > 0)
+                {
+                    Log.LogInfo("Restocked " + generator.name + " after "
+                                + (today - stamped) + " days: " + touched
+                                + " objects put back.");
+                }
+            }
         }
     }
 }

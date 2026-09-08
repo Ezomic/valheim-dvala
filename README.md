@@ -1,12 +1,67 @@
 # Dvala
 
-One sentence saying what the mod does, in a player's words.
+A dungeon left alone for thirty in-game days fills back up.
 
-Then the *why*. This file explains the design argument, not the settings - the settings
-explain themselves in the config file, and repeating them here is two places to get out of
-step. Say what problem this exists to solve, what the obvious alternative was, and why it
-was rejected. That paragraph is the reason a stranger installs it and the reason future-you
-does not undo it.
+Valheim's dungeons are one-shot. A crypt you have cleared is a corridor with nothing in it
+forever, and the map fills with them - so a server that people keep playing on slowly turns
+into a landscape of empty rooms nobody has any reason to enter again. Dvala puts the contents
+back on a timer and leaves everything else exactly as it was.
+
+**It restocks. It never regenerates.** Nothing here deletes a saved object, moves a wall or
+re-rolls a layout. The rooms you know stay the rooms you know, down to the corridor you got
+lost in, and anything you built inside is untouched.
+
+## What comes back
+
+- **Chests**, refilled from their own drop table. Not a snapshot of what was in them - the
+  room does not remember what it held, it remembers what kind of room it is. A mod that adds
+  loot to a crypt table is therefore picked up for free.
+- **Pickables**: berries, mushrooms, surtling cores, the things lying on the floor.
+- **Ore veins**, healed. A vein you half-mined is whole again.
+- **Spawners**, re-armed - but only where the creature they made is provably gone. Re-arming
+  a spawner whose draugr is still walking around does not replace it, it adds a second one,
+  and vanilla puts no ceiling on that at all.
+
+## What does not
+
+Three kinds of thing are genuinely destroyed when a player takes them, rather than marked as
+taken, and no mod can put those back without regenerating the room:
+
+- A vein mined out **completely**. Part-mined is fine; the last hit removes the object.
+- Pickables with no respawn time and nothing to hide - a few one-off props.
+- `PickableItem` pedestal pieces, which keep no record of themselves at all.
+
+Everything else in a dungeon turned out to be a flag or a value on an object that is still
+there, which is the reason this mod can be as careful as it is. That was worth checking: the
+mod it replaces, and Lur's own readme, both assume a looted dungeon is mostly deleted and
+therefore that a reset must mean regeneration. It is not, and it does not.
+
+## Your own things are safe
+
+- A container **you placed** is never touched, on two independent tests: a piece a player put
+  down carries its creator, and a chest the game placed carries a drop table. Either one is
+  enough to refuse. Emptying somebody's storage and filling it with crypt loot is the worst
+  thing this mod could do, so it declines on the first sign.
+- A dungeon with **a player inside it** is skipped and keeps its old date, so it comes back
+  round the moment they leave rather than losing its turn for another thirty days.
+- **Fuling camps, Meadows villages and farms are off by default.** They are built by the same
+  generator as the dungeons, but they sit on the surface where people build houses.
+
+## The clock
+
+Thirty **in-game** days, not thirty of yours. A Valheim day is twenty minutes of a running
+world, so thirty days is about ten hours of play - and on a dedicated server the clock keeps
+turning while nobody is on, which is usually what you want and occasionally a surprise.
+
+The count starts when Dvala **first sees** a dungeon, never at day zero. Installing this on a
+world you have played for two years does not restock everything in it on the next tick.
+
+## Hildir's three
+
+Off by default. [Lur](https://github.com/Ezomic/valheim-lur) sells a horn that wakes exactly
+those three mini-bosses on purpose, and a timer that does it for free takes the point out of
+the thing somebody paid Hildir for. Turn `HildirRooms` on if you do not use Lur; the two do
+not fight, and whichever gets there first simply finds the work already done.
 
 ## Installing
 
@@ -18,25 +73,33 @@ before the mod has loaded, which is the usual reason people think it is broken.
 
 ## Settings
 
-The file is `BepInEx/config/ezomic.valheim.dvala.cfg`. Open it in any text editor. Every
-setting has a comment above it, so the file explains itself.
+The file is `BepInEx/config/ezomic.valheim.dvala.cfg`. Every setting has a comment above it,
+so the file explains itself.
 
 Note that changing a default in a new version does nothing on a machine that has already run
 the mod. BepInEx writes every entry on first run and the saved value wins.
 
 ## Multiplayer
 
-Say plainly which of the three this is, because it is the question people actually ask:
+**Everyone needs it**, and the reason is where the work happens. A dedicated server never
+loads a dungeon's contents at all - it has no player, so it has no position to load anything
+around - which means the machine that can do this is the one standing outside the door. That
+is a client, and it is also the machine that owns those objects, which is what makes the
+writes stick. A server-side-only version of this mod would be writing into the dark.
 
-- **Everyone needs it.** The server refuses a client that does not have it, at the same
-  build. Anything that registers a prefab or changes item data is this.
-- **The host needs it.** Clients without it are let in and are unaffected.
-- **Nobody else needs it.** Purely local, purely visual.
+So each player restocks the dungeons they walk up to. The date lives on the dungeon itself and
+is shared, so two players cannot restock the same crypt twice, and somebody without the mod
+still sees the results.
+
+**Untested in multiplayer, and untested in game at all at the time of writing.** Everything
+above is read out of the game's own code rather than guessed, and the reading was done twice
+by different readers, but reading is not playing.
 
 If [Core](https://github.com/Ezomic/valheim-core) is installed, this mod registers with its
-version gate and the host's settings apply to everyone connected to it, in memory only -
-your own config file is never written to and comes back the moment you disconnect. Keybinds
-stay yours. Without Core the mod still runs; what is lost is the enforcement.
+version gate and the host's settings apply to everyone connected to it, in memory only - your
+own config file is never written to and comes back the moment you disconnect. Without Core
+the mod still runs; what is lost is the enforcement, which here means players can disagree
+about how long thirty days is.
 
 ## Licence
 

@@ -15,6 +15,11 @@ Built and never run. Every mechanism in it was read out of the game's assemblies
 guessed, and read twice by different readers, but nothing here has been seen working in a
 game.
 
+Hildir's three - the Sealed Tower, the Howling Cavern and the Smouldering Tomb - are included
+on the same timer as everything else. That changes what Lur's horn is for: it still wakes a
+mini-boss on the spot, but it is no longer the only way to fight one again. `HildirRooms` off
+puts it back.
+
 `KeepVeins`, on by default, is the one setting that changes vanilla rather than restoring it.
 A vein deletes itself when its last chunk dies, and nothing records that it was ever there, so
 a postfix on `AllDestroyed` holds that deletion back inside dungeon interiors. What is left is

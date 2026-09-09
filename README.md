@@ -51,8 +51,9 @@ comes round it fills back in like everything else.
 Turn it off and the mod is purely restorative again, at the price of the obvious hole: strip a
 crypt bare and only its chests, spawners and pickables come back.
 
-**Interiors only, whatever else you switch on.** Nothing on the surface is ever held back -
-your copper deposits behave exactly as they always did.
+**Only inside dungeons this mod manages.** A copper deposit in the open behaves exactly as it
+always did; the test is room membership, so even a dungeon standing on the ground does not
+claim the veins outside its own walls.
 
 ## Your own things are safe
 
@@ -76,10 +77,16 @@ world you have played for two years does not restock everything in it on the nex
 
 ## Hildir's three
 
-Off by default. [Lur](https://github.com/Ezomic/valheim-lur) sells a horn that wakes exactly
-those three mini-bosses on purpose, and a timer that does it for free takes the point out of
-the thing somebody paid Hildir for. Turn `HildirRooms` on if you do not use Lur; the two do
-not fight, and whichever gets there first simply finds the work already done.
+The Sealed Tower, the Howling Cavern and the Smouldering Tomb are included, on the same timer
+as everything else.
+
+If you use [Lur](https://github.com/Ezomic/valheim-lur), that changes what its horn is for and
+it is worth saying plainly. The horn still works and still wakes a mini-boss on the spot - what
+it stops being is the *only* way to fight one again. It becomes the way to do it now rather
+than in thirty days. Turn `HildirRooms` off to keep the horn as the only route.
+
+The two never fight. Both re-arm the same spawner by clearing the same record, so whichever
+gets there first simply finds the work already done.
 
 ## Installing
 

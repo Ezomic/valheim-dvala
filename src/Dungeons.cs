@@ -115,35 +115,28 @@ namespace Dvala
             nview.GetZDO().Set(StampKey, day);
         }
 
-        /// <summary>
-        /// The height above which every dungeon interior sits. Vanilla's own number: it is
-        /// what <c>Character.InInterior</c> tests, and the generator hangs a crypt about five
-        /// kilometres over its own doorway.
-        /// </summary>
-        private const float InteriorFloor = 3000f;
-
         private static readonly List<DungeonGenerator> Managed = new List<DungeonGenerator>();
         private static float _managedAt = -999f;
 
         /// <summary>
-        /// Whether a point is inside a dungeon interior this mod is set to restock.
+        /// Whether a point is inside a dungeon this mod is set to restock.
         ///
         /// Asked from a Harmony patch on a per-hit path, so the cost matters in a way the
-        /// thirty second sweep's does not. Two things keep it cheap. The height test rejects
-        /// every vein on the surface - every overworld copper deposit in the world - with one
-        /// float compare and no scan at all. Only something already underground pays for the
-        /// list, and that list is rebuilt at most every two seconds.
+        /// thirty second sweep's does not. It used to open with a height test - dungeon
+        /// interiors hang above y 3000, which is vanilla's own <c>Character.InInterior</c>
+        /// number - and that was free, because it rejected every copper deposit on the
+        /// surface without looking at anything. It had to go: Hildir's Sealed Tower is a
+        /// dungeon that stands on the ground, so a height test excludes exactly the place
+        /// that was asked for.
         ///
-        /// The height test is also the honest limit of the feature: a "dungeon" that sits on
-        /// the ground rather than in the sky - a Fuling camp, Hildir's Sealed Tower - is never
-        /// treated as an interior here, even with its theme switched on. Holding a vein back
-        /// from deletion in a place people build houses is a different decision from doing it
-        /// in a crypt, and it is not one this setting is asking for.
+        /// What replaces it is the empty check below, which is free in the same way whenever
+        /// no dungeon this mod cares about is loaded - the ordinary case for somebody mining
+        /// in the open. When one is loaded the cost is a few box tests against its rooms, and
+        /// rooms rather than a zone box is what keeps a ground-level dungeon from claiming the
+        /// Fuling camp next door. The list itself is rebuilt at most every two seconds.
         /// </summary>
         internal static bool Inside(Vector3 point)
         {
-            if (point.y < InteriorFloor) return false;
-
             if (Time.realtimeSinceStartup - _managedAt > 2f)
             {
                 _managedAt = Time.realtimeSinceStartup;
@@ -152,6 +145,8 @@ namespace Dvala
                 foreach (DungeonGenerator generator in Live())
                     if (Wanted(generator)) Managed.Add(generator);
             }
+
+            if (Managed.Count == 0) return false;
 
             for (int i = 0; i < Managed.Count; i++)
             {

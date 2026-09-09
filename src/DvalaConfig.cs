@@ -91,15 +91,19 @@ namespace Dvala
             Ashlands = cfg.Bind("Contents", "Ashlands", true,
                 "Ashlands ruins and fortresses.");
 
-            // Off, and the reason is another mod rather than taste. Lur sells a horn that
-            // wakes exactly these three bosses once per sounding; a dungeon that restocks on
-            // its own undercuts the item somebody paid Hildir for.
-            HildirRooms = cfg.Bind("Contents", "HildirRooms", false,
+            // On, and it changes what a sibling mod is for, so it is worth stating rather than
+            // discovering. Lur sells a horn that wakes one of these three on the spot. With
+            // this on, they also come back on their own after the timer - so the horn stops
+            // being the only way to fight them again and becomes the way to do it now instead
+            // of in thirty days. That is a smaller job than it was, and a deliberate one.
+            //
+            // The two do not fight. Both re-arm the same spawner by clearing the same
+            // connection, so whichever gets there first simply finds the work already done.
+            HildirRooms = cfg.Bind("Contents", "HildirRooms", true,
                 "Hildir's three: the Sealed Tower, the Howling Cavern and the Smouldering "
-                + "Tomb. Off, because Lur exists to wake exactly those on purpose and a timer "
-                + "that does it for free takes the point out of the horn. On is supported and "
-                + "the two do not fight - whichever gets there first simply finds it already "
-                + "done.");
+                + "Tomb. On, so their mini-bosses return on the timer like anything else. If "
+                + "you use Lur, its horn still works and still wakes one immediately - what "
+                + "this takes away is the horn being the only way. Turn it off to keep that.");
 
             // Off because these are not dungeons in the sense anybody means. They are surface
             // camps that happen to be built by the same generator.

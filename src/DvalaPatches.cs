@@ -25,12 +25,16 @@ namespace Dvala
     /// nothing and cannot be hit. It is a saved object and nothing else - which is exactly what
     /// a half-mined vein already is, and the world was already paying for those.
     ///
-    /// <b>Interiors only.</b> The test is Dungeons.Inside(point), which rejects anything below
-    /// three kilometres before it looks at anything else, so no vein on the surface is ever
-    /// affected however the content settings are set. Two reasons. Holding a deletion back in
-    /// a place people build houses is a different decision from doing it in a crypt and nobody
-    /// asked for that one. And this runs on the swing of a pickaxe: the height compare is what
-    /// keeps it from being a scene scan every time anybody mines anything anywhere.
+    /// <b>Inside a managed dungeon only.</b> The test is Dungeons.Inside(point), and it is
+    /// room membership rather than a height or a radius - which matters because Hildir's Sealed
+    /// Tower stands on the ground with a Fuling camp for a neighbour, and a box around the
+    /// generator would claim the camp's veins along with the tower's. An earlier version opened
+    /// with a height compare, since interiors hang above y 3000; it was free and it excluded
+    /// the Sealed Tower, which is the one place that was asked for by name.
+    ///
+    /// This still runs on the swing of a pickaxe. What keeps that honest now is that the check
+    /// returns immediately when no managed dungeon is loaded, which is the state anybody mining
+    /// in the open is in.
     ///
     /// One call site, checked rather than assumed: AllDestroyed is read in exactly one place,
     /// the branch that destroys the object. The field it sets alongside, m_allDestroyed, only

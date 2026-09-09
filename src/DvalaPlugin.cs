@@ -207,14 +207,27 @@ namespace Dvala
                 // turn for another thirty days.
                 if (DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator)) continue;
 
-                int touched = Restore.Dungeon(generator);
+                Restore.Counts counts = Restore.Dungeon(generator);
+
                 Dungeons.Stamp(generator, today);
 
-                if (DvalaConfig.Verbose.Value || touched > 0)
+                // Read the stamp straight back. A write to a ZDO this machine does not own is
+                // discarded without an error, and the symptom is a dungeon that restocks on
+                // every sweep forever - which is exactly what the first run in game did. This
+                // turns that from a puzzle into one line saying which half is broken.
+                int wrote = Dungeons.Stamped(generator);
+
+                if (DvalaConfig.Verbose.Value || counts.Total > 0)
                 {
-                    Log.LogInfo("Restocked " + generator.name + " after "
-                                + (today - stamped) + " days: " + touched
-                                + " objects put back.");
+                    Log.LogInfo("Restocked " + Dungeons.Describe(generator) + " after "
+                                + (today - stamped) + " days: " + counts + ".");
+                }
+
+                if (wrote != today)
+                {
+                    Log.LogWarning("Stamp did not stick on " + Dungeons.Describe(generator)
+                                   + ": wrote " + today + ", reads back " + wrote
+                                   + ". It will restock again on the next sweep.");
                 }
             }
         }

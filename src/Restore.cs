@@ -43,15 +43,56 @@ namespace Dvala
     internal static class Restore
     {
         /// <summary>
-        /// Restocks one dungeon and returns how many objects were actually changed.
+        /// What one pass changed, split by kind.
         ///
-        /// Zero is a normal answer and does not mean failure - a dungeon nobody looted has
-        /// nothing to put back.
+        /// Split rather than totalled because a total cannot be debugged. The first run in
+        /// game reported the same handful of objects put back on every sweep, which means
+        /// either the writes are not sticking or the same objects are being found spent
+        /// again - and one number cannot tell those apart, let alone say which of the four
+        /// paths is the one failing.
         /// </summary>
-        internal static int Dungeon(DungeonGenerator generator)
+        internal struct Counts
         {
-            return Pickables(generator) + Chests(generator) + Veins(generator)
-                   + Spawners(generator);
+            internal int Pickables;
+            internal int Chests;
+            internal int Veins;
+            internal int Spawners;
+
+            // How many of each kind were in the rooms at all, restored or not. Without this,
+            // "pickables 0" has three possible meanings - none here, none picked, or the flag
+            // read wrong - and the one that matters is the one it cannot say.
+            internal int PickablesSeen;
+            internal int ChestsSeen;
+            internal int VeinsSeen;
+            internal int SpawnersSeen;
+
+            internal int Total => Pickables + Chests + Veins + Spawners;
+
+            public override string ToString()
+            {
+                return "pickables " + Pickables + "/" + PickablesSeen
+                       + ", chests " + Chests + "/" + ChestsSeen
+                       + ", veins " + Veins + "/" + VeinsSeen
+                       + ", spawners " + Spawners + "/" + SpawnersSeen;
+            }
+        }
+
+        /// <summary>
+        /// Restocks one dungeon and returns what it changed.
+        ///
+        /// All zeroes is a normal answer and does not mean failure - a dungeon nobody looted
+        /// has nothing to put back.
+        /// </summary>
+        internal static Counts Dungeon(DungeonGenerator generator)
+        {
+            var counts = new Counts();
+
+            Pickables(generator, ref counts);
+            Chests(generator, ref counts);
+            Veins(generator, ref counts);
+            Spawners(generator, ref counts);
+
+            return counts;
         }
 
         /// <summary>
@@ -63,10 +104,8 @@ namespace Dvala
         /// zone is unloaded and rebuilt. The RPC runs SetPicked on every client, and on the
         /// owner that also writes the ZDO.
         /// </summary>
-        private static int Pickables(DungeonGenerator generator)
+        private static void Pickables(DungeonGenerator generator, ref Counts counts)
         {
-            int touched = 0;
-
             foreach (Pickable pickable in UnityEngine.Object.FindObjectsOfType<Pickable>())
             {
                 if (pickable == null) continue;
@@ -75,16 +114,16 @@ namespace Dvala
                 ZNetView nview = pickable.GetComponent<ZNetView>();
                 if (nview == null || !nview.IsValid()) continue;
 
+                counts.PickablesSeen++;
+
                 // Read the flag off the ZDO rather than the component's private m_picked. Same
                 // answer, no reflection, and it is the value that actually persists.
                 if (!nview.GetZDO().GetBool(ZDOVars.s_picked)) continue;
 
                 nview.ClaimOwnership();
                 nview.InvokeRPC(ZNetView.Everybody, "RPC_SetPicked", false);
-                touched++;
+                counts.Pickables++;
             }
-
-            return touched;
         }
 
         /// <summary>
@@ -102,10 +141,8 @@ namespace Dvala
         /// with nothing re-rolling it. Doing it here, on a container that is loaded and owned,
         /// is the case that actually happens.
         /// </summary>
-        private static int Chests(DungeonGenerator generator)
+        private static void Chests(DungeonGenerator generator, ref Counts counts)
         {
-            int touched = 0;
-
             foreach (Container container in UnityEngine.Object.FindObjectsOfType<Container>())
             {
                 if (container == null) continue;
@@ -129,22 +166,38 @@ namespace Dvala
                 ZNetView nview = container.GetComponent<ZNetView>();
                 if (nview == null || !nview.IsValid()) continue;
 
-                nview.ClaimOwnership();
-
                 Inventory inventory = container.GetInventory();
                 if (inventory == null) continue;
 
-                inventory.RemoveAll();
+                counts.ChestsSeen++;
+
+                // Empty only, and the first run in game is why this test exists rather than
+                // being obvious. Without it every dungeon chest was re-rolled on every sweep:
+                // the same crypts reported the same two or three objects put back over and
+                // over, which read as writes that were not sticking when in fact they were
+                // sticking perfectly and being redone.
+                //
+                // It is also the honest reading of "fills back up". A chest with something in
+                // it has not been emptied, and if that something is a player's - a stash left
+                // in a crypt they are working through - then replacing it with a fresh roll of
+                // crypt loot is the worst thing this mod could do. The creator and drop-table
+                // tests above catch a chest somebody built; this catches a chest somebody is
+                // using.
+                //
+                // And it makes the pass idempotent, which is what stops the repeat: a chest
+                // this fills is no longer empty, so the next sweep walks past it.
+                if (inventory.NrOfItems() > 0) continue;
+
+                nview.ClaimOwnership();
+
                 foreach (ItemDrop.ItemData item in container.m_defaultItems.GetDropListItems())
                     inventory.AddItem(item);
 
                 // No explicit save. Inventory raises m_onChanged, Container.OnContainerChanged
                 // marks it, and the CheckForChanges tick started in Awake writes it within a
                 // second - which is the same path a player closing the lid goes through.
-                touched++;
+                counts.Chests++;
             }
-
-            return touched;
         }
 
         /// <summary>
@@ -162,9 +215,8 @@ namespace Dvala
         /// world level included: a vein restored to the base value would be softer than the
         /// world it is in.
         /// </summary>
-        private static int Veins(DungeonGenerator generator)
+        private static void Veins(DungeonGenerator generator, ref Counts counts)
         {
-            int touched = 0;
 
             foreach (MineRock5 rock in UnityEngine.Object.FindObjectsOfType<MineRock5>())
             {
@@ -174,12 +226,23 @@ namespace Dvala
                 ZNetView nview = rock.GetComponent<ZNetView>();
                 if (nview == null || !nview.IsValid()) continue;
 
+                counts.VeinsSeen++;
+
                 // Untouched veins carry no health string at all. Skipping them keeps the write
                 // count honest and costs nothing - a rewrite of an identical value is dropped
                 // before it reaches the network anyway.
                 if (nview.GetZDO().GetString(ZDOVars.s_health).Length == 0) continue;
 
-                int areas = rock.GetComponentsInChildren<Collider>().Length;
+                // Inactive included, and that word is the whole difference between a vein
+                // that comes back and one that comes back half. MineRock5.Awake builds its
+                // area list with GetComponentsInChildren<Collider>() while every chunk is
+                // still active, so its list is the full set. UpdateMesh then deactivates each
+                // chunk's GameObject as that chunk's health reaches zero - and the same call
+                // without includeInactive skips exactly those. Counting live chunks writes a
+                // shorter array than there are areas, LoadHealth fills only the first N, and
+                // the dead ones are never given a value. Reported from the game as "the vein
+                // only came back half", which is literally what it was.
+                int areas = rock.GetComponentsInChildren<Collider>(true).Length;
                 if (areas == 0) continue;
 
                 float full = rock.m_health
@@ -193,10 +256,8 @@ namespace Dvala
                 nview.ClaimOwnership();
                 nview.GetZDO().Set(ZDOVars.s_health,
                                    Convert.ToBase64String(package.GetArray()));
-                touched++;
+                counts.Veins++;
             }
-
-            return touched;
         }
 
         /// <summary>
@@ -221,9 +282,8 @@ namespace Dvala
         /// it is the machine whose UpdateSpawner will read it. It would not be survivable from
         /// a dedicated server, which is another reason the work is not done there.
         /// </summary>
-        private static int Spawners(DungeonGenerator generator)
+        private static void Spawners(DungeonGenerator generator, ref Counts counts)
         {
-            int touched = 0;
 
             foreach (CreatureSpawner spawner
                      in UnityEngine.Object.FindObjectsOfType<CreatureSpawner>())
@@ -233,6 +293,8 @@ namespace Dvala
 
                 ZNetView nview = spawner.GetComponent<ZNetView>();
                 if (nview == null || !nview.IsValid()) continue;
+
+                counts.SpawnersSeen++;
 
                 ZDO zdo = nview.GetZDO();
                 if (zdo.GetConnectionType() != ZDOExtraData.ConnectionType.Spawned) continue;
@@ -245,10 +307,8 @@ namespace Dvala
 
                 nview.ClaimOwnership();
                 zdo.SetConnection(ZDOExtraData.ConnectionType.None, ZDOID.None);
-                touched++;
+                counts.Spawners++;
             }
-
-            return touched;
         }
     }
 }

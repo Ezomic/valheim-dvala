@@ -158,6 +158,22 @@ namespace Dvala
             return false;
         }
 
+        /// <summary>
+        /// A name that tells two of them apart.
+        ///
+        /// Every burial chamber in the world is called DG_ForestCrypt(Clone), so the first log
+        /// of a run reading "restocked DG_ForestCrypt(Clone)" four times could not be told from
+        /// one dungeon restocked four times - which is the exact question that mattered. The
+        /// ZDO's id is unique and stable for the life of the object.
+        /// </summary>
+        internal static string Describe(DungeonGenerator generator)
+        {
+            ZNetView nview = generator.GetComponent<ZNetView>();
+            if (nview == null || !nview.IsValid()) return generator.name;
+
+            return generator.name + " " + nview.GetZDO().m_uid;
+        }
+
         /// <summary>Today, as the world counts days. -1 while the world is still coming up.</summary>
         internal static int Today()
         {

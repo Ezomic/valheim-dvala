@@ -253,9 +253,18 @@ namespace Dvala
                 package.Write(areas);
                 for (int i = 0; i < areas; i++) package.Write(full);
 
+                string healed = Convert.ToBase64String(package.GetArray());
+
+                // Compare before writing, and this is about the count rather than the cost -
+                // an identical value is already free, because ZDO.Set only bumps DataRevision
+                // when the value actually changes. But a vein that was never damaged still
+                // carries a health string, so writing blindly reported eleven veins restored
+                // in a crypt where one had been mined. A log that overstates what it did is
+                // worse than no log: the next person debugging this believes it.
+                if (nview.GetZDO().GetString(ZDOVars.s_health) == healed) continue;
+
                 nview.ClaimOwnership();
-                nview.GetZDO().Set(ZDOVars.s_health,
-                                   Convert.ToBase64String(package.GetArray()));
+                nview.GetZDO().Set(ZDOVars.s_health, healed);
                 counts.Veins++;
             }
         }

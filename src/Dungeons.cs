@@ -115,6 +115,54 @@ namespace Dvala
             nview.GetZDO().Set(StampKey, day);
         }
 
+        /// <summary>
+        /// The height above which every dungeon interior sits. Vanilla's own number: it is
+        /// what <c>Character.InInterior</c> tests, and the generator hangs a crypt about five
+        /// kilometres over its own doorway.
+        /// </summary>
+        private const float InteriorFloor = 3000f;
+
+        private static readonly List<DungeonGenerator> Managed = new List<DungeonGenerator>();
+        private static float _managedAt = -999f;
+
+        /// <summary>
+        /// Whether a point is inside a dungeon interior this mod is set to restock.
+        ///
+        /// Asked from a Harmony patch on a per-hit path, so the cost matters in a way the
+        /// thirty second sweep's does not. Two things keep it cheap. The height test rejects
+        /// every vein on the surface - every overworld copper deposit in the world - with one
+        /// float compare and no scan at all. Only something already underground pays for the
+        /// list, and that list is rebuilt at most every two seconds.
+        ///
+        /// The height test is also the honest limit of the feature: a "dungeon" that sits on
+        /// the ground rather than in the sky - a Fuling camp, Hildir's Sealed Tower - is never
+        /// treated as an interior here, even with its theme switched on. Holding a vein back
+        /// from deletion in a place people build houses is a different decision from doing it
+        /// in a crypt, and it is not one this setting is asking for.
+        /// </summary>
+        internal static bool Inside(Vector3 point)
+        {
+            if (point.y < InteriorFloor) return false;
+
+            if (Time.realtimeSinceStartup - _managedAt > 2f)
+            {
+                _managedAt = Time.realtimeSinceStartup;
+
+                Managed.Clear();
+                foreach (DungeonGenerator generator in Live())
+                    if (Wanted(generator)) Managed.Add(generator);
+            }
+
+            for (int i = 0; i < Managed.Count; i++)
+            {
+                DungeonGenerator generator = Managed[i];
+                if (generator == null) continue;
+                if (Inside(generator, point)) return true;
+            }
+
+            return false;
+        }
+
         /// <summary>Today, as the world counts days. -1 while the world is still coming up.</summary>
         internal static int Today()
         {

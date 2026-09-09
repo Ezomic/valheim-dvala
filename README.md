@@ -17,17 +17,17 @@ lost in, and anything you built inside is untouched.
   room does not remember what it held, it remembers what kind of room it is. A mod that adds
   loot to a crypt table is therefore picked up for free.
 - **Pickables**: berries, mushrooms, surtling cores, the things lying on the floor.
-- **Ore veins**, healed. A vein you half-mined is whole again.
+- **Ore veins**, healed. A vein you half-mined is whole again, and one you stripped bare
+  comes back too - see below, because that one costs something.
 - **Spawners**, re-armed - but only where the creature they made is provably gone. Re-arming
   a spawner whose draugr is still walking around does not replace it, it adds a second one,
   and vanilla puts no ceiling on that at all.
 
 ## What does not
 
-Three kinds of thing are genuinely destroyed when a player takes them, rather than marked as
+Two kinds of thing are genuinely destroyed when a player takes them, rather than marked as
 taken, and no mod can put those back without regenerating the room:
 
-- A vein mined out **completely**. Part-mined is fine; the last hit removes the object.
 - Pickables with no respawn time and nothing to hide - a few one-off props.
 - `PickableItem` pedestal pieces, which keep no record of themselves at all.
 
@@ -35,6 +35,24 @@ Everything else in a dungeon turned out to be a flag or a value on an object tha
 there, which is the reason this mod can be as careful as it is. That was worth checking: the
 mod it replaces, and Lur's own readme, both assume a looted dungeon is mostly deleted and
 therefore that a reset must mean regeneration. It is not, and it does not.
+
+## The one thing it changes rather than restores
+
+An ore vein is a cluster of chunks, each with its own health. Break the last one and the game
+does not mark the vein as empty, it **deletes** it - and nothing anywhere records that a vein
+was ever at that spot or which kind it was. A chest keeps its note when you empty it. A vein
+does not survive being finished.
+
+So `KeepVeins`, on by default, holds that last deletion back. What stays behind is an object
+with every chunk dead: invisible, no collision, drops nothing, cannot be hit. It is a saved
+object and nothing else, which is exactly what a half-mined vein already was. When the timer
+comes round it fills back in like everything else.
+
+Turn it off and the mod is purely restorative again, at the price of the obvious hole: strip a
+crypt bare and only its chests, spawners and pickables come back.
+
+**Interiors only, whatever else you switch on.** Nothing on the surface is ever held back -
+your copper deposits behave exactly as they always did.
 
 ## Your own things are safe
 

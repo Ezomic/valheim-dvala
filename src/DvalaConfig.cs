@@ -31,6 +31,7 @@ namespace Dvala
         internal static ConfigEntry<bool> Ashlands;
         internal static ConfigEntry<bool> HildirRooms;
         internal static ConfigEntry<bool> Camps;
+        internal static ConfigEntry<bool> KeepVeins;
 
         internal static ConfigEntry<bool> Verbose;
 
@@ -106,6 +107,20 @@ namespace Dvala
                 "Fuling camps, Meadows villages and farms. These are built by the dungeon "
                 + "generator but they sit on the surface where people build, so restocking "
                 + "them means re-arming spawners next door to somebody's house.");
+
+            // The one setting here that changes vanilla rather than restoring it, which is why
+            // it says so out loud. A vein is a cluster of chunks; break the last one and the
+            // game deletes the whole object, and nothing anywhere records that a vein was ever
+            // at that spot - so unlike a chest or a spawner there is no note left for Dvala to
+            // rewrite. This holds that last deletion back inside dungeon interiors only.
+            KeepVeins = cfg.Bind("Contents", "KeepVeins", true,
+                "Stop a fully mined vein from deleting itself, so it can be restocked later. "
+                + "Without this, a vein you strip bare is gone for good and only the chests, "
+                + "spawners and pickables in that room come back. What is left behind is an "
+                + "invisible husk you can walk through, holding nothing, until the timer fills "
+                + "it back in - and it costs the world exactly what a half-mined vein already "
+                + "costs it, one saved object. Interiors only: veins on the surface are never "
+                + "held back, whatever else is switched on here.");
 
             // Not synced by intent - see the plugin. A diagnostic flag is personal, and a
             // host turning on someone else's logging is not a thing anybody asked for.

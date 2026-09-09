@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using Ezomic.Core;
+using HarmonyLib;
 using UnityEngine;
 
 namespace Dvala
@@ -47,6 +48,8 @@ namespace Dvala
         /// </summary>
         internal static bool CorePresent;
 
+        private Harmony _harmony;
+
         /// <summary>Real seconds since the last look. Not saved, and does not need to be.</summary>
         private float _since;
 
@@ -69,10 +72,14 @@ namespace Dvala
 
             TryRegisterWithCore();
 
-            // No Harmony, and that is worth one line rather than an empty file. Dvala patches
-            // nothing: it reads dungeons the game has already loaded and writes to their own
-            // ZDOs on a timer. The one thing that would need a patch is holding a fully mined
-            // vein back from destroying itself, which is a decision nobody has made yet.
+            // One patch, and it is the exception to how the rest of the mod works: everything
+            // else is a write to a value the game already keeps, and DvalaPatches holds a
+            // fully mined vein back from deleting itself so there is still something to
+            // restock. PatchAll over the named type, never the whole assembly - a bare
+            // PatchAll() walks every type in the DLL, so a half-written patch in another file
+            // would go live the moment it compiled.
+            _harmony = new Harmony(PluginGuid);
+            _harmony.PatchAll(typeof(DvalaPatches));
 
             // The startup line every mod in the suite writes. It is how a log answers "which
             // build of what is actually loaded" without anyone guessing.
@@ -132,6 +139,13 @@ namespace Dvala
             // same build over different text unless it is told.
             //
             //     Suite.Data(File.ReadAllText(path));
+        }
+
+        private void OnDestroy()
+        {
+            // UnpatchSelf, never UnpatchAll(). The argumentless one unpatches every mod in
+            // the process, not just this one.
+            if (_harmony != null) _harmony.UnpatchSelf();
         }
 
         /// <summary>

@@ -15,12 +15,13 @@ Built and never run. Every mechanism in it was read out of the game's assemblies
 guessed, and read twice by different readers, but nothing here has been seen working in a
 game.
 
+`KeepVeins`, on by default, is the one setting that changes vanilla rather than restoring it.
+A vein deletes itself when its last chunk dies, and nothing records that it was ever there, so
+a postfix on `AllDestroyed` holds that deletion back inside dungeon interiors. What is left is
+an invisible husk with no collision that the timer fills back in. Off, and a stripped vein is
+gone for good.
+
 ### Known gaps
 
-- A vein mined out completely does not come back. `MineRock5` destroys itself once every hit
-  area is dead and the server tombstones the id, so only regeneration could restore it. The
-  fix is known and not taken: a postfix on `AllDestroyed` holding the object back would turn
-  it into a flagged state like every other, at the cost of leaving invisible husks in the
-  world forever. That is a gameplay decision, not a bug.
 - Pickables with no respawn time and no hidden child, and `PickableItem` pedestals, are
-  destroyed on pick and cannot be restored either.
+  destroyed on pick and cannot be restored.

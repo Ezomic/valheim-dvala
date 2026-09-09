@@ -11,9 +11,17 @@ A dungeon left alone for thirty in-game days fills back up: chests re-roll from 
 drop tables, pickables return, part-mined veins heal, and spawners whose creature is gone are
 re-armed. Nothing is regenerated and nothing saved is destroyed.
 
-Built and never run. Every mechanism in it was read out of the game's assemblies rather than
-guessed, and read twice by different readers, but nothing here has been seen working in a
-game.
+Every mechanism in it was read out of the game's assemblies rather than guessed, and read
+twice by different readers. Three of the four are now also confirmed in a running game,
+singleplayer, on 2026-09-09:
+
+- **Spawners** re-arm and their creatures come back.
+- **Veins** restore whole, including a partly mined one.
+- **Chests** refill when empty and are left alone when they still hold something.
+
+**Pickables are unconfirmed.** Every run so far reports none restored, and it is not yet known
+whether that means none were picked in the rooms tested or whether the pickables in question
+are the class that is destroyed on pick rather than flagged.
 
 Hildir's three - the Sealed Tower, the Howling Cavern and the Smouldering Tomb - are included
 on the same timer as everything else. That changes what Lur's horn is for: it still wakes a

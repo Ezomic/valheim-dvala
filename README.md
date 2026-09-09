@@ -116,9 +116,12 @@ So each player restocks the dungeons they walk up to. The date lives on the dung
 is shared, so two players cannot restock the same crypt twice, and somebody without the mod
 still sees the results.
 
-**Untested in multiplayer, and untested in game at all at the time of writing.** Everything
-above is read out of the game's own code rather than guessed, and the reading was done twice
-by different readers, but reading is not playing.
+**Untested in multiplayer.** Singleplayer is another matter: spawners, veins and chests have
+all been watched working in a running game, and the three bugs that found were exactly the
+kind reading cannot find - a vein came back half because the game deactivates a mined chunk's
+object and the count that sizes the restore skips inactive children. Everything here was read
+out of the game's own code rather than guessed, and read twice by different readers, and it
+still took an evening in a crypt to get right.
 
 If [Core](https://github.com/Ezomic/valheim-core) is installed, this mod registers with its
 version gate and the host's settings apply to everyone connected to it, in memory only - your

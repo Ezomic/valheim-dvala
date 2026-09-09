@@ -1,7 +1,7 @@
 {
     "name":  "Dvala",
     "author":  "Robbin Thijssen",
-    "version_number":  "0.1.0",
+    "version_number":  "1.0.0",
     "description":  "A dungeon left alone long enough fills back up.",
     "dependencies":  [
                          "denikson-BepInExPack_Valheim-5.4.2333"

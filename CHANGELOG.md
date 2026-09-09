@@ -3,7 +3,7 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
-## 0.1.0 - unreleased
+## [1.0.0] - 2026-09-09
 
 First version.
 

@@ -33,7 +33,7 @@ namespace Dvala
     {
         public const string PluginGuid = "ezomic.valheim.dvala";
         public const string PluginName = "Dvala";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "1.0.0";
         public const string PluginAuthor = "Robbin Thijssen";
 
         /// <summary>Core's plugin GUID. Optional - see TryRegisterWithCore.</summary>

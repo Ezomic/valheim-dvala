@@ -4,7 +4,7 @@
     "version_number":  "1.0.0",
     "description":  "A dungeon left alone long enough fills back up.",
     "dependencies":  [
-                         "denikson-BepInExPack_Valheim-5.4.2333"
+                         "denikson-BepInExPack_Valheim-5.4.2350"
                      ],
     "website_url":  "https://github.com/Ezomic/valheim-dvala"
 }

@@ -7,7 +7,7 @@ schemaVersion = "0.0.1"
 [package]
 namespace = "Ezomic"
 name = "Dvala"
-versionNumber = "1.0.0"
+versionNumber = "1.0.1"
 description = "A dungeon left alone long enough fills back up."
 websiteUrl = "https://github.com/Ezomic/valheim-dvala"
 containsNsfwContent = false

@@ -1,134 +1,218 @@
 # Dvala
 
-A dungeon left alone for thirty in-game days fills back up.
+Valheim's dungeons are one-shot. Once you have cleared a crypt it stays an empty corridor for
+the rest of the world's life. Dvala puts the contents back on a timer: a dungeon left alone
+for thirty in-game days fills up again.
 
-Valheim's dungeons are one-shot. A crypt you have cleared is a corridor with nothing in it
-forever, and the map fills with them - so a server that people keep playing on slowly turns
-into a landscape of empty rooms nobody has any reason to enter again. Dvala puts the contents
-back on a timer and leaves everything else exactly as it was.
+It restocks, it does not regenerate. Nothing here deletes a saved object, moves a wall or
+re-rolls a layout. The rooms stay exactly as they are, and anything you built inside a dungeon
+is left alone.
 
-**It restocks. It never regenerates.** Nothing here deletes a saved object, moves a wall or
-re-rolls a layout. The rooms you know stay the rooms you know, down to the corridor you got
-lost in, and anything you built inside is untouched.
+## Features
 
-## What comes back
+- **Chests** refill from their own drop table. It is a fresh roll, not a snapshot of what was
+  in them, so a mod that adds loot to a crypt table is picked up automatically. Only empty
+  chests are touched.
+- **Pickables** reset to unpicked: berries, mushrooms, surtling cores, and the rest of what
+  lies around on the floor.
+- **Ore veins** heal back to full health, including the world level bonus.
+- **Spawners** are re-armed, but only where the creature they produced is provably gone.
+  Re-arming a spawner whose draugr is still walking around would add a second one, and vanilla
+  puts no ceiling on that.
+- Player-placed containers are never touched, and neither is anything else you built.
+- Each dungeon carries its own timer, stored on the dungeon and shared with everyone in the
+  world.
 
-- **Chests**, refilled from their own drop table. Not a snapshot of what was in them - the
-  room does not remember what it held, it remembers what kind of room it is. A mod that adds
-  loot to a crypt table is therefore picked up for free.
-- **Pickables**: berries, mushrooms, surtling cores, the things lying on the floor.
-- **Ore veins**, healed. A vein you half-mined is whole again, and one you stripped bare
-  comes back too - see below, because that one costs something.
-- **Spawners**, re-armed - but only where the creature they made is provably gone. Re-arming
-  a spawner whose draugr is still walking around does not replace it, it adds a second one,
-  and vanilla puts no ceiling on that at all.
+## How the timer works
 
-## What does not
+The count is in **in-game days**, not real ones. A Valheim day is twenty minutes of a running
+world, so thirty days is roughly ten hours of play. On a dedicated server the clock keeps
+turning while nobody is connected, which is usually what you want and occasionally a surprise.
 
-Two kinds of thing are genuinely destroyed when a player takes them, rather than marked as
-taken, and no mod can put those back without regenerating the room:
+Counting starts the first time Dvala sees a dungeon, not at day zero. Installing this on a
+world you have played for two years does not restock everything in it on the next tick; each
+dungeon starts its clock when you next load it.
 
-- Pickables with no respawn time and nothing to hide - a few one-off props.
-- `PickableItem` pedestal pieces, which keep no record of themselves at all.
+A dungeon with a player inside is skipped and keeps its old date, so it comes back round as
+soon as they leave instead of losing its turn for another thirty days. You can turn that off
+with `SkipOccupied`, but a restock under your feet re-arms the spawners you just cleared.
 
-Everything else in a dungeon turned out to be a flag or a value on an object that is still
-there, which is the reason this mod can be as careful as it is. That was worth checking: the
-mod it replaces, and Lur's own readme, both assume a looted dungeon is mostly deleted and
-therefore that a reset must mean regeneration. It is not, and it does not.
+Membership is tested against the dungeon generator's own room boxes rather than a radius
+around it. That matters for dungeons that stand on the ground, like Hildir's Sealed Tower: a
+box around the generator would reach into the Fuling camp next door and claim its contents
+too.
 
-## The one thing it changes rather than restores
+## What does not come back
 
-An ore vein is a cluster of chunks, each with its own health. Break the last one and the game
-does not mark the vein as empty, it **deletes** it - and nothing anywhere records that a vein
-was ever at that spot or which kind it was. A chest keeps its note when you empty it. A vein
-does not survive being finished.
+Two kinds of object are genuinely destroyed when a player takes them rather than flagged as
+taken, so nothing short of regenerating the room can restore them:
 
-So `KeepVeins`, on by default, holds that last deletion back. What stays behind is an object
-with every chunk dead: invisible, no collision, drops nothing, cannot be hit. It is a saved
-object and nothing else, which is exactly what a half-mined vein already was. When the timer
-comes round it fills back in like everything else.
+- Pickables with no respawn time and nothing to hide. A few one-off props fall in this class.
+- `PickableItem` pedestal pieces, which keep no persistent record of themselves.
 
-Turn it off and the mod is purely restorative again, at the price of the obvious hole: strip a
-crypt bare and only its chests, spawners and pickables come back.
+The Queen's room in an infested mine is never included and has no setting. She is a boss with
+a summoning ritual and a permanent global key, which is a different argument from a content
+toggle.
 
-**Only inside dungeons this mod manages.** A copper deposit in the open behaves exactly as it
-always did; the test is room membership, so even a dungeon standing on the ground does not
-claim the veins outside its own walls.
+## Ore veins and KeepVeins
 
-## Your own things are safe
+An ore vein is a cluster of chunks with a health value each. Break the last one and the game
+does not mark the vein as empty, it deletes the object, and nothing anywhere records that a
+vein was ever at that spot or which kind it was. A chest keeps its note when you empty it, a
+vein does not survive being finished.
 
-- A container **you placed** is never touched, on two independent tests: a piece a player put
-  down carries its creator, and a chest the game placed carries a drop table. Either one is
-  enough to refuse. Emptying somebody's storage and filling it with crypt loot is the worst
-  thing this mod could do, so it declines on the first sign.
-- A dungeon with **a player inside it** is skipped and keeps its old date, so it comes back
-  round the moment they leave rather than losing its turn for another thirty days.
-- **Fuling camps, Meadows villages and farms are off by default.** They are built by the same
-  generator as the dungeons, but they sit on the surface where people build houses.
+`KeepVeins`, on by default, holds that last deletion back. What stays behind is an object with
+every chunk dead: invisible, no collision, drops nothing, cannot be hit. It costs the world one
+saved object, the same as a half-mined vein already does, and the timer fills it back in like
+everything else.
 
-## The clock
+This is the one setting that changes vanilla behaviour rather than restoring it. Turn it off
+and Dvala is purely restorative, at the price of the obvious hole: strip a crypt bare and only
+its chests, spawners and pickables come back.
 
-Thirty **in-game** days, not thirty of yours. A Valheim day is twenty minutes of a running
-world, so thirty days is about ten hours of play - and on a dedicated server the clock keeps
-turning while nobody is on, which is usually what you want and occasionally a surprise.
-
-The count starts when Dvala **first sees** a dungeon, never at day zero. Installing this on a
-world you have played for two years does not restock everything in it on the next tick.
+It applies inside managed dungeon rooms only. A copper deposit in the open behaves exactly as
+it always did, whatever else you have switched on.
 
 ## Hildir's three
 
-The Sealed Tower, the Howling Cavern and the Smouldering Tomb are included, on the same timer
-as everything else.
+The Sealed Tower, the Howling Cavern and the Smouldering Tomb are included by default, on the
+same timer as everything else.
 
-If you use [Lur](https://github.com/Ezomic/valheim-lur), that changes what its horn is for and
-it is worth saying plainly. The horn still works and still wakes a mini-boss on the spot - what
-it stops being is the *only* way to fight one again. It becomes the way to do it now rather
-than in thirty days. Turn `HildirRooms` off to keep the horn as the only route.
+If you also run [Lur](https://github.com/Ezomic/valheim-lur), this changes what its horn is
+for. The horn still works and still wakes a mini-boss on the spot; what it stops being is the
+only way to fight one again. It becomes the way to do it now rather than in thirty days. Set
+`HildirRooms` to false to keep the horn as the only route.
 
-The two never fight. Both re-arm the same spawner by clearing the same record, so whichever
-gets there first simply finds the work already done.
+The two mods do not conflict. Both re-arm the same spawner by clearing the same record, so
+whichever gets there first finds the work already done.
 
-## Installing
+## Installation
 
-Needs BepInEx. Nothing else. Through a mod manager it is one install. By hand, put
-`Dvala.dll` in `BepInEx/plugins/Dvala/`.
+Requires [BepInEx 5.4.2350](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/).
+BepInEx 5 only, not 6.
 
-Then start the game once and quit. That first run writes the config file. It does not exist
-before the mod has loaded, which is the usual reason people think it is broken.
+Through a mod manager it is a single install from
+[Thunderstore](https://thunderstore.io/c/valheim/p/Ezomic/Dvala/). By hand, put `Dvala.dll` in
+`BepInEx/plugins/Dvala/`.
 
-## Settings
+Start the game once and quit before looking for the config file. BepInEx writes it on the
+first run, and it does not exist before the plugin has loaded.
 
-The file is `BepInEx/config/ezomic.valheim.dvala.cfg`. Every setting has a comment above it,
-so the file explains itself.
+[Longhouse Core](https://thunderstore.io/c/valheim/p/Ezomic/Longhouse_Core/) is an optional
+soft dependency. See [Multiplayer](#multiplayer) for what it adds.
 
-Note that changing a default in a new version does nothing on a machine that has already run
-the mod. BepInEx writes every entry on first run and the saved value wins.
+## Configuration
+
+The file is `BepInEx/config/ezomic.valheim.dvala.cfg`. Every entry has a comment above it in
+the file itself.
+
+### Dvala
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `Enabled` | `true` | Off leaves the plugin loaded and changing nothing. |
+| `Days` | `30` | In-game days a dungeon must be left alone before it fills back up. |
+| `SkipOccupied` | `true` | Never restock a dungeon with a player inside it. Off means a dungeon can refill around you mid-run. |
+| `RoomPadding` | `1.5` | Metres of slack when asking whether a point is inside a dungeon room. Raise it only if a player standing in a doorway is treated as outside. A large value starts catching the ground above a shallow crypt. |
+| `CheckSeconds` | `30` | How often to look, in real seconds. This is not how often anything resets, that is `Days`. It only changes how soon after midnight a due dungeon notices. |
+| `Verbose` | `false` | Write what was found and what was changed to `BepInEx/LogOutput.log`. One line per dungeon and one per item. |
+
+### Contents
+
+| Setting | Default | What it covers |
+| --- | --- | --- |
+| `Crypts` | `true` | Burial chambers, forest crypts and sunken crypts. |
+| `Caves` | `true` | Troll caves and mountain frost caves. |
+| `Mines` | `true` | Mistlands infested mines. The Queen's own room is never included. |
+| `Ashlands` | `true` | Ashlands ruins and fortresses. |
+| `HildirRooms` | `true` | The Sealed Tower, the Howling Cavern and the Smouldering Tomb. |
+| `Camps` | `false` | Fuling camps, Meadows villages and farms. These come out of the same generator as the dungeons but sit on the surface where people build, so restocking them means re-arming spawners next door to somebody's house. |
+| `KeepVeins` | `true` | Stop a fully mined vein inside a dungeon from deleting itself, so it can be restocked later. |
+
+Changing a default in a new version does nothing on a machine that has already run the mod.
+BepInEx writes every entry on the first run and the saved value wins, so edit the `.cfg` if you
+want a new default.
 
 ## Multiplayer
 
-**Everyone needs it**, and the reason is where the work happens. A dedicated server never
-loads a dungeon's contents at all - it has no player, so it has no position to load anything
-around - which means the machine that can do this is the one standing outside the door. That
-is a client, and it is also the machine that owns those objects, which is what makes the
-writes stick. A server-side-only version of this mod would be writing into the dark.
+**Install it on every client.** The work has to happen on a machine that has the dungeon
+loaded, and on a dedicated server that is never the server: with no local player it has no
+position to load anything around, so it never instantiates a dungeon's contents at all. Each
+player restocks the dungeons they walk up to, and that client is also the one that owns those
+objects, which is what makes the writes stick.
 
-So each player restocks the dungeons they walk up to. The date lives on the dungeon itself and
-is shared, so two players cannot restock the same crypt twice, and somebody without the mod
-still sees the results.
+Install the DLL on the dedicated server as well. It does no restocking there, but Core needs
+it present to enforce the version check.
 
-**Untested in multiplayer.** Singleplayer is another matter: spawners, veins and chests have
-all been watched working in a running game, and the three bugs that found were exactly the
-kind reading cannot find - a vein came back half because the game deactivates a mined chunk's
-object and the count that sizes the restore skips inactive children. Everything here was read
-out of the game's own code rather than guessed, and read twice by different readers, and it
-still took an evening in a crypt to get right.
+The last-stocked day lives on the dungeon itself and is shared, so two players cannot restock
+the same crypt twice, and a player without the mod still sees the restocked contents.
 
-If [Core](https://github.com/Ezomic/valheim-core) is installed, this mod registers with its
-version gate and the host's settings apply to everyone connected to it, in memory only - your
-own config file is never written to and comes back the moment you disconnect. Without Core
-the mod still runs; what is lost is the enforcement, which here means players can disagree
-about how long thirty days is.
+With Core installed, Dvala registers as required on both sides. A client missing it, or on a
+different version or build, is rejected when it connects. The host's settings are then applied
+to connected clients in memory only: your own config file is not written to, and your values
+come back when you disconnect.
+
+Without Core the mod still runs. What is lost is the enforcement, which here means players can
+disagree about how long thirty days is. One player with `Days` set to 5 restocks the world's
+dungeons every five days for everybody.
+
+## Status
+
+Confirmed in single player on 2026-09-09: spawners re-arm and their creatures return, veins
+restore whole including partly mined ones, and chests refill when empty and are left alone when
+they still hold something.
+
+Pickables are **unconfirmed**. Every run so far reported none restored, and it is not yet known
+whether nothing was picked in the rooms tested or whether those particular pickables are the
+class that is destroyed on pick rather than flagged.
+
+Untested in multiplayer.
+
+## Troubleshooting
+
+**Nothing has restocked yet.** The count starts when Dvala first sees a dungeon, so on an
+existing world you need `Days` in-game days from that point, not from when the dungeon was
+cleared. Set `Verbose` to true and the log will say what it found.
+
+**A dungeon restocks over and over.** Look for a `Stamp did not stick` warning in
+`BepInEx/LogOutput.log`. That means the write to the dungeon's own record was discarded, which
+should not happen on the client that has it loaded. Report it with the log.
+
+**The config file is not there.** Run the game once with the mod installed. BepInEx writes it
+on the first load.
+
+**A setting has no effect.** Check the `.cfg` on disk before anything else. The saved value
+beats a new default in code, and on a server the host's values override yours while you are
+connected.
+
+## Bug reports
+
+Report in the [Discord](https://discord.gg/hJzAVaZ5wb) or on the
+[issue tracker](https://github.com/Ezomic/valheim-dvala/issues). Please include:
+
+- `BepInEx/LogOutput.log`, ideally with `Verbose` set to true.
+- Whether you were in single player, hosting, or on a dedicated server.
+- Your `ezomic.valheim.dvala.cfg`.
+- Which kind of dungeon it was, and what you expected to come back.
+- `AppData/LocalLow/IronGate/Valheim/Player.log` if a vanilla mechanic broke rather than Dvala
+  itself. Exceptions thrown mid-frame land there and not in the BepInEx log.
+
+## Discord
+
+The [Discord](https://discord.gg/hJzAVaZ5wb) is used for mod information, updates, support,
+bug reports and compatibility questions.
+
+## Server
+
+There is also a small EU server running the pack if you want somewhere to play. Connection
+details are in the Discord.
 
 ## Licence
 
 MIT. See `LICENSE`.
+
+## Part of Longhouse
+
+Dvala is part of the [Longhouse](https://thunderstore.io/c/valheim/p/Ezomic/Longhouse/)
+modpack, which pins the exact versions used by the Ezomic setup. It behaves the same
+installed on its own.

@@ -3,7 +3,7 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [1.0.2] - 2026-09-19
 
 ### Fixed
 
@@ -16,7 +16,9 @@ and the mod uses [semantic versioning](https://semver.org).
   sweep now also leaves a note on each spawner it re-arms, which does sync, and whichever
   client owns that spawner when it next ticks clears the record itself right before the game
   decides whether to spawn. The note is lifted the moment the spawner spawns. Dungeons already
-  restocked without their creatures fill in properly at their next restock. Untested in game.
+  restocked without their creatures fill in properly at their next restock. Tested on a
+  dedicated server: a cleared crypt re-armed all ten of its spawners, and its creatures were
+  there after logging out and back in, which is exactly the step that lost them before.
 
 ## [1.0.1] - 2026-09-12
 

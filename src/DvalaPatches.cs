@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Dvala
 {
     /// <summary>
-    /// The one patch this mod has, and the only place it changes vanilla rather than restoring
-    /// it.
+    /// The only place this mod changes vanilla rather than restoring it. (Rearm patches the
+    /// spawner too, but only to finish a restore the sweep started.)
     ///
     /// Everything else Dvala does is a write to a value the game already keeps: a chest's
     /// flag, a pickable's flag, a vein's health, a spawner's connection. Nothing is destroyed

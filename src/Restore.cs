@@ -316,6 +316,10 @@ namespace Dvala
 
                 nview.ClaimOwnership();
                 zdo.SetConnection(ZDOExtraData.ConnectionType.None, ZDOID.None);
+
+                // The clear above is local and only holds while this machine keeps the ZDO.
+                // The note is what survives it - see Rearm.
+                Rearm.Mark(zdo, Dungeons.Today());
                 counts.Spawners++;
             }
         }

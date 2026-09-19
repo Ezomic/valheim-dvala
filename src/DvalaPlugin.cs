@@ -80,6 +80,7 @@ namespace Dvala
             // would go live the moment it compiled.
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(DvalaPatches));
+            _harmony.PatchAll(typeof(Rearm));
 
             // The startup line every mod in the suite writes. It is how a log answers "which
             // build of what is actually loaded" without anyone guessing.

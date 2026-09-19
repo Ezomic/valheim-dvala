@@ -3,6 +3,21 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- **Creatures now come back on a server, not only in singleplayer.** A restocked dungeon on a
+  server got its chests, pickables and veins back but none of its creatures. Re-arming a
+  spawner means clearing the record that it already fired, and the game never sends that
+  clear to anyone else: it stayed on the one client that swept the dungeon and was lost as soon
+  as that client dropped the area, logged out or handed ownership on. The day stamp had already
+  synced, so the dungeon then counted as restocked for thirty days with no creatures in it. The
+  sweep now also leaves a note on each spawner it re-arms, which does sync, and whichever
+  client owns that spawner when it next ticks clears the record itself right before the game
+  decides whether to spawn. The note is lifted the moment the spawner spawns. Dungeons already
+  restocked without their creatures fill in properly at their next restock. Untested in game.
+
 ## [1.0.1] - 2026-09-12
 
 ### Changed

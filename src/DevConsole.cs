@@ -86,9 +86,8 @@ namespace Dvala
             if (Regenerate.ZoneOccupied(nearest, true))
                 return "refused another player is in this zone";
 
-            Dungeons.Stamp(nearest, Dungeons.Today());
-
-            Regenerate.Outcome outcome = Regenerate.Run(nearest);
+            Regenerate.Outcome outcome = Regenerate.Run(nearest, Dungeons.Today(),
+                                                        Dungeons.Stamped(nearest));
             DvalaPlugin.Log.LogInfo("Command: new dungeon for " + Dungeons.Describe(nearest) + ": "
                                     + outcome + ".");
             return outcome.ToString();

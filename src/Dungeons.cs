@@ -211,9 +211,18 @@ namespace Dvala
         /// </summary>
         internal static bool Inside(DungeonGenerator generator, Vector3 point)
         {
+            return Inside(generator.GetComponentsInChildren<Room>(), point);
+        }
+
+        /// <summary>
+        /// The same test against a room list taken once, for a caller that asks about every
+        /// networked object in the scene and cannot afford a component walk per object.
+        /// </summary>
+        internal static bool Inside(Room[] rooms, Vector3 point)
+        {
             float pad = Mathf.Max(0f, DvalaConfig.RoomPadding.Value);
 
-            foreach (Room room in generator.GetComponentsInChildren<Room>())
+            foreach (Room room in rooms)
             {
                 if (room == null) continue;
 

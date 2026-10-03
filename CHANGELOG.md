@@ -16,6 +16,17 @@ and the mod uses [semantic versioning](https://semver.org).
   and leaves Hildir's three out unless `NewDungeonHildir` is on too. A player who logged out
   inside can come back in the wrong place. Not run in game yet, and the part that makes other
   clients rebuild the new walls is unproven.
+- New dungeon is safer against what can go wrong around it. Only the peer that owns the
+  dungeon's record may replace it, and it re-reads the record after claiming it, so two clients
+  cannot both rebuild one dungeon. It refuses, and restocks the ordinary way, when a placed
+  piece, a tamed creature or a tombstone is inside the rooms (dropped items do not block it).
+  A failed generation is retried once, then the old layout is rebuilt from its seed rather than
+  leaving the dungeon empty, a failure to remove one object no longer stops the rest, the global
+  random state is restored, and a run that does not end well puts the stamp back. A due dungeon
+  whose zone stays occupied for three in-game days is restocked instead of waiting forever. The
+  wall watch only runs while `NewDungeon` is on, and no longer rebuilds walls for a client that
+  merely returns to a dungeon that was replaced while it was away. The `dvala` console command
+  is patched on its own, so a game update that moves it costs the command and not the mod.
 - `dvala newdungeon` in the console replaces the dungeon whose entrance you stand at, for
   testing one crypt without waiting for the timer. It needs `devcommands`.
 - A Devkit scenario that places a piece and drops an item in a crypt, replaces it, and checks

@@ -1,0 +1,56 @@
+#! nostage
+# Dvala - a new dungeon refuses to bury what a player built.
+#
+# A new layout is laid over whatever stands in the rooms, so a placed piece inside them must
+# stop the run before anything is deleted. Three claims:
+#
+#   1. A workbench placed in the crypt is really there, counted from inside.
+#   2. `dvala newdungeon` from the entrance says refused, and names the placed piece.
+#   3. Back inside, the workbench is still there, and the log shows the dungeon was not
+#      touched (no gen=1 line).
+#
+# Run it in SINGLEPLAYER, with Dvala's Crypts switch on, as in the sibling scenario. As there,
+# `place` drops the piece from 8 m above onto the first collider, so under a low ceiling it can
+# land on the roof and outside every room box; then the refusal does not fire and claim 2
+# fails, which is a placement problem and not a Dvala one.
+
+clear
+god
+ghost
+
+mark
+move 100
+landed
+
+location Crypt2
+wait 3
+
+enter
+landed
+wait 2
+
+place piece_workbench 2 0
+wait 1
+count piece_workbench 1 8
+
+enter
+landed
+wait 2
+
+mod dvala newdungeon
+printed refused yes
+printed placed yes
+printed gen=1 no
+wait 3
+
+enter
+landed
+wait 3
+
+count piece_workbench 1 8
+
+enter
+landed
+
+back
+landed

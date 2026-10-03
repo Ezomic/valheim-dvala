@@ -24,7 +24,7 @@ namespace Dvala
     /// pass, which runs the generator's Awake, Load and Spawn against the new saved layout.
     ///
     /// Each client watches the generator's <c>dvala_gen</c> counter. The first value it sees for
-    /// a generator is remembered and acted on never, since the shells it just built already
+    /// a generator instance is remembered and acted on never, since the shells it just built already
     /// match; a later, different value is the signal. The client that regenerated records the
     /// new value itself, so it does not tear down the shells Generate just made.
     ///
@@ -36,37 +36,56 @@ namespace Dvala
     /// </summary>
     internal static class Shells
     {
-        private static readonly Dictionary<ZDOID, int> Built = new Dictionary<ZDOID, int>();
+        /// <summary>
+        /// The generation each generator INSTANCE was last known to match, keyed by instance id
+        /// and not by ZDO. An instance built from the saved layout already has the current
+        /// walls, so its first-seen value is the baseline; keyed by ZDO, a client that left the
+        /// zone and came back to a rebuilt generator would find a stale entry, see a
+        /// difference, and tear down walls that were just built correctly.
+        /// </summary>
+        private static readonly Dictionary<int, int> Built = new Dictionary<int, int>();
+        private static readonly List<int> Gone = new List<int>();
+        private static readonly HashSet<int> Seen = new HashSet<int>();
 
         internal static void Remember(DungeonGenerator generator)
         {
             ZNetView nview = generator.GetComponent<ZNetView>();
             if (nview == null || !nview.IsValid()) return;
 
-            Built[nview.GetZDO().m_uid] = nview.GetZDO().GetInt(Regenerate.GenKey, 0);
+            Built[generator.GetInstanceID()] = nview.GetZDO().GetInt(Regenerate.GenKey, 0);
         }
 
         internal static void Watch()
         {
+            Seen.Clear();
+
             foreach (DungeonGenerator generator in Dungeons.Live())
             {
                 ZNetView nview = generator.GetComponent<ZNetView>();
                 ZDO zdo = nview.GetZDO();
 
+                int id = generator.GetInstanceID();
+                Seen.Add(id);
+
                 int now = zdo.GetInt(Regenerate.GenKey, 0);
 
                 int known;
-                if (!Built.TryGetValue(zdo.m_uid, out known))
+                if (!Built.TryGetValue(id, out known))
                 {
-                    Built[zdo.m_uid] = now;
+                    Built[id] = now;
                     continue;
                 }
 
                 if (known == now) continue;
 
-                Built[zdo.m_uid] = now;
+                Built[id] = now;
                 Rebuild(generator, nview);
             }
+
+            Gone.Clear();
+            foreach (int id in Built.Keys)
+                if (!Seen.Contains(id)) Gone.Add(id);
+            foreach (int id in Gone) Built.Remove(id);
         }
 
         private static void Rebuild(DungeonGenerator generator, ZNetView nview)

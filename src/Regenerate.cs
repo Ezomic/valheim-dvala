@@ -21,8 +21,8 @@ namespace Dvala
     /// What the world keeps is the RESULT, <c>s_roomData</c>, and every later load reads that
     /// back without generating anything. So the seed here is Dvala's own: the one vanilla used
     /// plus a counter kept on the generator's ZDO times a prime, deterministic and never
-    /// repeating for that dungeon. <c>GetSeed()</c> is not used for the base, because after one
-    /// <c>Generate(seed, mode)</c> it returns the seed that call was given.
+    /// repeating for that dungeon. <c>GetSeed()</c> is not used for the base, because what it
+    /// returns depends on the generator's history (see <c>BaseSeed</c>).
     ///
     /// <b>What is deleted.</b> Never "everything inside the rooms". A ZDO's sector is its x and
     /// z only, and the interior hangs about 5000 m above the entrance in the same sector, so a
@@ -33,6 +33,12 @@ namespace Dvala
     /// player placed (a non-zero creator on the ZDO), anything tamed, and any dropped item.
     /// Creatures are added by the one other route the game gives, a spawner's Spawned
     /// connection, since a creature is not a child of a room.
+    ///
+    /// <b>What blocks a run.</b> Refusing to delete is not enough for things a player made,
+    /// because a new layout is laid over whatever is standing there. So the run is refused
+    /// outright, before anything is touched, when a placed piece, a tamed creature or a
+    /// tombstone is inside the room boxes; the caller then restocks the ordinary way. A loose
+    /// item does not block it.
     ///
     /// <b>Known cost, stated plainly.</b> A chest the generator placed is deleted with whatever
     /// is in it, including a player's stash. There is no way to tell an unlooted chest from one
@@ -150,16 +156,66 @@ namespace Dvala
         }
 
         /// <summary>
-        /// Replaces the dungeon. The caller has already stamped it and checked that the zone
-        /// is clear.
+        /// How many in-game days a due dungeon waits for its zone to empty before it gets the
+        /// ordinary restock instead. Not saved: a restart starts the wait again, which only
+        /// ever makes it longer.
+        /// </summary>
+        internal const int GraceDays = 3;
+
+        private static readonly Dictionary<ZDOID, int> Waiting = new Dictionary<ZDOID, int>();
+
+        /// <summary>
+        /// Whether a due dungeon whose zone is occupied has waited long enough to be restocked
+        /// the ordinary way. The first call starts the wait and answers no.
+        ///
+        /// Without this a zone somebody always stands in, a base beside a crypt, keeps the
+        /// dungeon due and untouched forever with NewDungeon on, where without NewDungeon it
+        /// would have been restocked.
+        /// </summary>
+        internal static bool WaitedLongEnough(DungeonGenerator generator, int today)
+        {
+            ZNetView nview = generator.GetComponent<ZNetView>();
+            if (nview == null || !nview.IsValid()) return false;
+
+            ZDOID id = nview.GetZDO().m_uid;
+
+            int since;
+            if (!Waiting.TryGetValue(id, out since))
+            {
+                Waiting[id] = today;
+                return false;
+            }
+
+            return today - since >= GraceDays;
+        }
+
+        internal static void StopWaiting(DungeonGenerator generator)
+        {
+            ZNetView nview = generator.GetComponent<ZNetView>();
+            if (nview == null || !nview.IsValid()) return;
+
+            Waiting.Remove(nview.GetZDO().m_uid);
+        }
+
+        /// <summary>
+        /// Replaces the dungeon. The caller has checked that the zone is clear and that this
+        /// machine owns the generator's ZDO; this checks the second again, because it is the
+        /// only thing standing between two clients and two copies of every chest.
+        ///
+        /// <paramref name="expectedStamp"/> is the stamp the caller decided on. It is written
+        /// here, not by the caller, after the claim: ClaimOwnership is not a lock, so the stamp
+        /// and the generation counter are read back once this machine is the owner and the run
+        /// stops if either moved, which is what another peer finishing the same job looks like.
         ///
         /// Nothing is deleted until every refusal that can be known in advance has been checked:
-        /// a live ZDO, placed rooms, a located prefab for a custom interior, and a non-empty
-        /// whitelist. After that point the only way out is forwards, so a throw inside Generate
-        /// is answered by trying once more with the next seed rather than by leaving an empty
-        /// dungeon behind.
+        /// a live ZDO, placed rooms, a located prefab for a custom interior, a non-empty
+        /// whitelist, and nothing a player made inside the rooms. After that point the only way
+        /// out is forwards: a failed layout is answered by a second seed, and a second failure
+        /// by rebuilding the old layout from its own seed. Whenever the run does not end with
+        /// a dungeon it is happy with, the stamp goes back to what it was, so the caller's
+        /// ordinary restock (or the next sweep) deals with the dungeon.
         /// </summary>
-        internal static Outcome Run(DungeonGenerator generator)
+        internal static Outcome Run(DungeonGenerator generator, int today, int expectedStamp)
         {
             var outcome = new Outcome();
 
@@ -167,15 +223,33 @@ namespace Dvala
             if (nview == null || !nview.IsValid())
                 return Refuse(outcome, "the generator has no live ZDO");
 
+            if (!nview.IsOwner())
+                return Refuse(outcome, "another peer owns this dungeon's record, and only the owner "
+                                       + "may replace it");
+
+            if (WorldGenerator.instance == null)
+                return Refuse(outcome, "the world generator is not up, so no seed can be derived");
+
             outcome.RoomsBefore = generator.GetComponentsInChildren<Room>().Length;
             if (outcome.RoomsBefore == 0)
                 return Refuse(outcome, "no rooms are built yet, so there is nothing to tell the "
                                        + "dungeon's objects from anyone else's");
 
-            Vector3 original;
-            string why;
-            if (!TryOriginalPosition(generator, out original, out why))
-                return Refuse(outcome, why);
+            LocationData location;
+            bool haveLocation = TryLocation(generator, out location);
+
+            Vector3 original = Vector3.zero;
+            if (generator.m_useCustomInteriorTransform)
+            {
+                if (!haveLocation)
+                    return Refuse(outcome, "this dungeon uses a custom interior transform and its "
+                                           + "location prefab could not be found to read where its "
+                                           + "generator belongs");
+
+                if (location.HasInterior) original = location.GeneratorLocalPosition;
+            }
+
+            bool damage = haveLocation && location.ApplyRandomDamage;
 
             HashSet<int> allowed = Whitelist(generator);
             if (allowed.Count == 0)
@@ -183,49 +257,140 @@ namespace Dvala
                                        + "to this dungeon");
 
             ZDO zdo = nview.GetZDO();
+            int gen0 = zdo.GetInt(GenKey, 0);
+
+            string blocked;
+            List<Target> targets = Collect(generator, allowed, ref outcome, true, out blocked);
+            if (blocked != null) return Refuse(outcome, blocked);
+
             nview.ClaimOwnership();
+            if (!zdo.IsOwner() || Dungeons.Stamped(generator) != expectedStamp
+                || zdo.GetInt(GenKey, 0) != gen0)
+            {
+                return Refuse(outcome, "the dungeon's record changed while it was being claimed, so "
+                                       + "another peer is replacing it");
+            }
 
-            Location locationOf;
-            bool damage = TryLocation(generator, out locationOf) && locationOf.m_applyRandomDamage;
+            Dungeons.Stamp(generator, today);
+            if (Dungeons.Stamped(generator) != today)
+            {
+                Dungeons.Stamp(generator, expectedStamp);
+                return Refuse(outcome, "the stamp did not stick, so this machine does not really "
+                                       + "own the dungeon");
+            }
 
+            bool built;
+            try
+            {
+                built = Replace(generator, zdo, allowed, targets, gen0, original, damage,
+                                ref outcome);
+            }
+            catch (Exception error)
+            {
+                DvalaPlugin.Log.LogError("Replacing " + Dungeons.Describe(generator)
+                                         + " threw: " + error);
+                outcome.Reason = "threw " + error.GetType().Name;
+                built = false;
+            }
+
+            Shells.Remember(generator);
+            StopWaiting(generator);
+
+            if (!built)
+            {
+                Dungeons.Stamp(generator, expectedStamp);
+                outcome.Ok = false;
+                return outcome;
+            }
+
+            outcome.Ok = true;
+            return outcome;
+        }
+
+        /// <summary>
+        /// Past the point of no return: remove, generate, and if the layout is poor or the
+        /// generation threw, once more with the next seed. Returns true only when a layout this
+        /// run chose is standing. When both generations threw, the old layout is rebuilt from
+        /// its own seed (the counter before this run), which is deterministic, and the run is
+        /// reported as failed so the caller restocks the dungeon the ordinary way. If even that
+        /// throws the dungeon is empty, and the log says so at error level.
+        /// </summary>
+        private static bool Replace(DungeonGenerator generator, ZDO zdo, HashSet<int> allowed,
+                                    List<Target> targets, int gen0, Vector3 original, bool damage,
+                                    ref Outcome outcome)
+        {
             int baseSeed = BaseSeed(generator);
-            int gen = zdo.GetInt(GenKey, 0);
+            int gen = gen0;
+            bool built = false;
 
             outcome.Rerolled = false;
             for (int attempt = 0; attempt < 2; attempt++)
             {
-                List<Target> targets = Collect(generator, allowed, ref outcome);
+                if (attempt > 0)
+                {
+                    string ignored;
+                    targets = Collect(generator, allowed, ref outcome, false, out ignored);
+                }
+
                 Remove(targets);
 
                 gen++;
                 zdo.Set(GenKey, gen);
 
-                bool generated = Generate(generator, baseSeed + gen * SeedStep, original, damage);
+                int seed = baseSeed + gen * SeedStep;
+                built = Generate(generator, seed, original, damage);
 
                 outcome.Gen = gen;
-                outcome.Seed = baseSeed + gen * SeedStep;
+                outcome.Seed = seed;
 
-                if (generated && !Poor(generator, outcome.RoomsBefore, out outcome.Rooms))
-                    break;
+                allowed.UnionWith(Whitelist(generator));
+
+                if (built && !Poor(generator, outcome.RoomsBefore, out outcome.Rooms))
+                    return true;
 
                 if (attempt == 0)
                 {
                     DvalaPlugin.Log.LogWarning("The new layout of " + Dungeons.Describe(generator)
-                                               + " was poor (" + outcome.Rooms + " rooms, was "
-                                               + outcome.RoomsBefore + "). Rolling once more.");
+                                               + (built ? " was poor (" + outcome.Rooms + " rooms, was "
+                                                          + outcome.RoomsBefore + ")."
+                                                        : " could not be generated.")
+                                               + " Rolling once more.");
                     outcome.Rerolled = true;
-                    allowed = Whitelist(generator);
-                    continue;
                 }
-
-                DvalaPlugin.Log.LogWarning("The second layout of " + Dungeons.Describe(generator)
-                                           + " was poor too (" + outcome.Rooms + " rooms). Keeping it.");
             }
 
-            Shells.Remember(generator);
+            if (built)
+            {
+                DvalaPlugin.Log.LogWarning("The second layout of " + Dungeons.Describe(generator)
+                                           + " was poor too (" + outcome.Rooms + " rooms). Keeping it.");
+                return true;
+            }
 
-            outcome.Ok = true;
-            return outcome;
+            DvalaPlugin.Log.LogError("Both new layouts of " + Dungeons.Describe(generator)
+                                     + " failed to generate. Rebuilding the old one from its seed.");
+
+            string unused;
+            Remove(Collect(generator, allowed, ref outcome, false, out unused));
+
+            int previous = baseSeed + gen0 * SeedStep;
+            if (Generate(generator, previous, original, damage))
+            {
+                outcome.Seed = previous;
+                Poor(generator, outcome.RoomsBefore, out outcome.Rooms);
+                outcome.Reason = "generation failed twice and the old layout was rebuilt from its seed";
+                DvalaPlugin.Log.LogError("The old layout of " + Dungeons.Describe(generator)
+                                         + " is back (" + outcome.Rooms + " rooms, seed " + previous
+                                         + "). It is not new, and it will be restocked.");
+            }
+            else
+            {
+                outcome.Reason = "generation failed twice and the old layout could not be rebuilt";
+                DvalaPlugin.Log.LogError(Dungeons.Describe(generator) + " IS NOW EMPTY: the old "
+                                         + "layout could not be rebuilt either. Reload the zone "
+                                         + "to load whatever the world saved.");
+            }
+
+            return false;
         }
 
         private static Outcome Refuse(Outcome outcome, string reason)
@@ -236,11 +401,17 @@ namespace Dvala
         }
 
         /// <summary>
-        /// The seed vanilla's own GetSeed() computes the first time it is asked, copied rather
-        /// than called. GetSeed() caches in m_generatedSeed, and Generate(seed, mode) writes the
-        /// seed it was given back into that same field, so a second call after one of ours would
-        /// return OUR seed and every regeneration would drift from the last instead of from the
-        /// dungeon. m_forceSeed, a developer override, is deliberately not honoured here.
+        /// The seed vanilla computes for this generator's first layout, worked out here from
+        /// the same formula and never by calling GetSeed().
+        ///
+        /// GetSeed() only hands back the seed it was last given when m_hasGeneratedSeed is
+        /// already true, which is the case for a generator that has just generated and not for
+        /// one rebuilt from its ZDO, where the flag starts false and it recomputes the formula
+        /// and overwrites m_generatedSeed. Which of the two a caller gets depends on the
+        /// generator's history, and Generate(seed, mode) writes our seed into m_generatedSeed
+        /// either way. Reading the formula directly gives the same number every time. It is the
+        /// first layout's seed unless a developer set m_forceSeed, which is deliberately not
+        /// honoured here.
         /// </summary>
         private static int BaseSeed(DungeonGenerator generator)
         {
@@ -253,6 +424,18 @@ namespace Dvala
         }
 
         /// <summary>
+        /// What is needed from the location prefab, copied while the prefab is held. The asset
+        /// is only guaranteed between Load and Release, so nothing here may keep a reference to
+        /// it or to anything under it.
+        /// </summary>
+        private struct LocationData
+        {
+            internal bool ApplyRandomDamage;
+            internal bool HasInterior;
+            internal Vector3 GeneratorLocalPosition;
+        }
+
+        /// <summary>
         /// The location prefab this generator was spawned from, found through the
         /// LocationProxy in its zone whose location's generator carries the same name.
         ///
@@ -261,9 +444,9 @@ namespace Dvala
         /// holds the number needed. The prefab asset does, and ZoneSystem.m_locations lists it
         /// by name.
         /// </summary>
-        private static bool TryLocation(DungeonGenerator generator, out Location location)
+        private static bool TryLocation(DungeonGenerator generator, out LocationData data)
         {
-            location = null;
+            data = new LocationData();
             if (ZoneSystem.instance == null) return false;
 
             Vector2s zone = ZoneSystem.GetZone(generator.transform.position);
@@ -292,7 +475,9 @@ namespace Dvala
                         if (found == null || found.m_generator == null) continue;
                         if (found.m_generator.name != wanted) continue;
 
-                        location = found;
+                        data.ApplyRandomDamage = found.m_applyRandomDamage;
+                        data.HasInterior = found.m_interiorTransform != null;
+                        data.GeneratorLocalPosition = found.m_generator.transform.localPosition;
                         return true;
                     }
                     finally
@@ -303,36 +488,6 @@ namespace Dvala
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// <c>DungeonGenerator.m_originalPosition</c>, which only SpawnLocation ever sets and
-        /// only when the location uses a custom interior transform. A generator rebuilt from
-        /// its ZDO has zero there, and Generate subtracts it from the generator's height to
-        /// find the zone's centre, so rooms fail the bounds test and the layout comes out tiny.
-        /// For the ordinary case (no custom transform) zero is what the first generation had,
-        /// and nothing needs doing.
-        /// </summary>
-        private static bool TryOriginalPosition(DungeonGenerator generator, out Vector3 original,
-                                                out string why)
-        {
-            original = Vector3.zero;
-            why = null;
-
-            if (!generator.m_useCustomInteriorTransform) return true;
-
-            Location location;
-            if (!TryLocation(generator, out location))
-            {
-                why = "this dungeon uses a custom interior transform and its location prefab could "
-                      + "not be found to read where its generator belongs";
-                return false;
-            }
-
-            if (location.m_interiorTransform != null)
-                original = location.m_generator.transform.localPosition;
-
-            return true;
         }
 
         /// <summary>
@@ -398,12 +553,26 @@ namespace Dvala
             return false;
         }
 
+        /// <summary>
+        /// What would be deleted, and, when <paramref name="guard"/> is set, whether anything a
+        /// player made stands in the way. <paramref name="blocked"/> is then a sentence saying
+        /// what, and null when the way is clear.
+        ///
+        /// The guard looks at every networked object inside the room boxes, not only the
+        /// whitelist: a wall or a workbench a player built is not one of the dungeon's own
+        /// prefabs, so the whitelist never sees it, and a new layout would be laid over it. A
+        /// piece with a creator, a tamed creature and a tombstone all count. A loose item does
+        /// not, because dropped items are left alone and a layout is allowed to bury one.
+        /// </summary>
         private static List<Target> Collect(DungeonGenerator generator, HashSet<int> allowed,
-                                            ref Outcome outcome)
+                                            ref Outcome outcome, bool guard, out string blocked)
         {
             var targets = new List<Target>();
             var taken = new HashSet<ZDOID>();
             var counts = new Dictionary<string, int>();
+
+            int pieces = 0, tamed = 0, stones = 0;
+            if (guard) CountPlayerMade(generator, ref pieces, ref tamed, ref stones);
 
             foreach (ZNetView view in UnityEngine.Object.FindObjectsOfType<ZNetView>())
             {
@@ -438,7 +607,7 @@ namespace Dvala
 
                 ZDO creature = ZDOMan.instance.GetZDO(spawnedId);
                 if (creature == null || taken.Contains(creature.m_uid)) continue;
-                if (creature.GetBool(ZDOVars.s_tamed)) { outcome.Kept++; continue; }
+                if (creature.GetBool(ZDOVars.s_tamed)) { outcome.Kept++; if (guard) tamed++; continue; }
                 if (creature.GetLong(ZDOVars.s_creator, 0L) != 0L) { outcome.Kept++; continue; }
 
                 ZNetView view = ZNetScene.instance.FindInstance(creature);
@@ -455,8 +624,46 @@ namespace Dvala
                     DvalaPlugin.Log.LogInfo("  new dungeon: " + pair.Value + " x " + pair.Key);
             }
 
+            blocked = null;
+            if (pieces + tamed + stones > 0)
+            {
+                var found = new List<string>();
+                if (pieces > 0) found.Add(pieces + " placed piece" + (pieces == 1 ? "" : "s"));
+                if (tamed > 0) found.Add(tamed + " tamed creature" + (tamed == 1 ? "" : "s"));
+                if (stones > 0) found.Add(stones + " tombstone" + (stones == 1 ? "" : "s"));
+
+                blocked = "player-made things are inside its rooms (" + string.Join(", ", found.ToArray())
+                          + "), and a new layout would bury them. Move them out, or let it be "
+                          + "restocked the ordinary way";
+            }
+
             outcome.Removed += targets.Count;
             return targets;
+        }
+
+        private static void CountPlayerMade(DungeonGenerator generator, ref int pieces,
+                                            ref int tamed, ref int stones)
+        {
+            Room[] rooms = generator.GetComponentsInChildren<Room>();
+
+            foreach (ZNetView view in UnityEngine.Object.FindObjectsOfType<ZNetView>())
+            {
+                if (view == null || !view.IsValid()) continue;
+
+                ZDO zdo = view.GetZDO();
+                bool made = zdo.GetLong(ZDOVars.s_creator, 0L) != 0L;
+                bool tame = zdo.GetBool(ZDOVars.s_tamed);
+                bool stone = !made && !tame && view.TryGetComponent(out TombStone _);
+                if (!made && !tame && !stone) continue;
+
+                if (view.TryGetComponent(out ItemDrop _)) continue;
+                if (view.TryGetComponent(out Player _)) continue;
+                if (!Dungeons.Inside(rooms, view.transform.position)) continue;
+
+                if (tame) tamed++;
+                else if (stone) stones++;
+                else pieces++;
+            }
         }
 
         private static void Count(Dictionary<string, int> counts, string name)
@@ -474,16 +681,31 @@ namespace Dvala
         private static void Remove(List<Target> targets)
         {
             long session = ZDOMan.GetSessionID();
+            int failed = 0;
 
             foreach (Target target in targets)
             {
-                target.Zdo.SetOwner(session);
+                try
+                {
+                    target.Zdo.SetOwner(session);
 
-                if (target.View != null && target.View.GetZDO() != null)
-                    ZNetScene.instance.Destroy(target.View.gameObject);
-                else
-                    ZDOMan.instance.DestroyZDO(target.Zdo);
+                    if (target.View != null && target.View.GetZDO() != null)
+                        ZNetScene.instance.Destroy(target.View.gameObject);
+                    else
+                        ZDOMan.instance.DestroyZDO(target.Zdo);
+                }
+                catch (Exception error)
+                {
+                    if (failed++ == 0)
+                    {
+                        DvalaPlugin.Log.LogWarning("Removing " + target.Prefab + " threw, and the "
+                                                   + "rest are still being removed: " + error.Message);
+                    }
+                }
             }
+
+            if (failed > 1)
+                DvalaPlugin.Log.LogWarning(failed + " objects could not be removed in all.");
         }
 
         /// <summary>
@@ -496,6 +718,10 @@ namespace Dvala
         {
             generator.m_originalPosition = original;
             WearNTear.m_randomInitialDamage = damage;
+
+            // Generate restores the global random state only when it gets to its last line, so
+            // a throw halfway leaves every other system on the seed this one set.
+            UnityEngine.Random.State state = UnityEngine.Random.state;
 
             try
             {
@@ -511,6 +737,7 @@ namespace Dvala
             finally
             {
                 WearNTear.m_randomInitialDamage = false;
+                UnityEngine.Random.state = state;
             }
         }
 

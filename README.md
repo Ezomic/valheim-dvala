@@ -103,6 +103,13 @@ rooms and is one of the networked prefabs those rooms and their doors are made f
 creature one of their spawners made. On top of that it never deletes anything a player placed,
 anything tamed, or any dropped item.
 
+**It refuses when something you made is in the way.** A new layout is built over whatever is
+standing there, so deleting nothing is not enough. If a piece you placed, a tamed creature or a
+tombstone is anywhere inside the dungeon's rooms, Dvala does not replace it at all. The log says
+what blocked it, and the dungeon is restocked the ordinary way instead, so it is not skipped for
+the month. Move your things out (or collect the tombstone) and it is replaced on the next due
+date. A dropped item does not block it, and can end up under a new wall.
+
 What it still costs you:
 
 - **A chest the dungeon made is deleted with whatever is in it**, including something you
@@ -111,11 +118,28 @@ What it still costs you:
   That is a deliberate limit, since other players would be left looking at the old walls. A
   player has to be close enough to have the dungeon loaded and yet outside its zone, usually
   one zone away, so on a busy server it may rarely run.
+- **If the zone never empties, the dungeon is restocked instead.** A due dungeon waits for
+  the zone to clear for three in-game days (counted from when Dvala first found it blocked,
+  and forgotten on a restart). After that it gets the ordinary restock and the clock
+  restarts, so it tries a new dungeon again at its next due date. A base beside a crypt does
+  not leave it empty forever. The same fallback applies when a new dungeon is refused for any
+  other reason, or when generating it fails.
+- **Only one machine ever does it.** The peer that owns the dungeon's saved record is the only
+  one allowed to replace it, and it checks that nobody else has changed that record first.
+  Two clients cannot both rebuild the same dungeon. A dedicated server replaces a dungeon only
+  while it owns it, which is only for a zone a client has loaded, so it never touches one that
+  no player is near.
+- **If generating fails, you get the old dungeon back, not an empty one.** A failed layout is
+  retried once with the next seed. If that fails too, the old layout is rebuilt from its own
+  seed and restocked, and the log says so loudly.
 - **A player who logged out inside comes back at their saved spot**, which in a new layout can
   be inside a wall or over empty space. Do not log out in a dungeon you expect to be replaced.
 - **Replaced layouts are not stored as seeds.** The world only ever saved the finished
   layout, so Dvala derives each new one from the old seed and a counter it keeps on the
   dungeon. The counter is written into the world.
+- **Other clients rebuild the walls only with `NewDungeon` on.** Watching for a changed
+  layout costs a scene scan every two seconds, so a machine with the setting off does not do
+  it. With Core installed the host's value is the one everyone uses.
 - **It is untested on a server**, and the part that makes other clients rebuild a dungeon's
   walls is unproven. See Status.
 

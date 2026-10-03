@@ -33,6 +33,9 @@ namespace Dvala
         internal static ConfigEntry<bool> Camps;
         internal static ConfigEntry<bool> KeepVeins;
 
+        internal static ConfigEntry<bool> NewDungeon;
+        internal static ConfigEntry<bool> NewDungeonHildir;
+
         internal static ConfigEntry<bool> Verbose;
 
         internal static void Bind(ConfigFile cfg)
@@ -125,6 +128,34 @@ namespace Dvala
                 + "it back in - and it costs the world exactly what a half-mined vein already "
                 + "costs it, one saved object. Interiors only: veins on the surface are never "
                 + "held back, whatever else is switched on here.");
+
+            // The only setting in this mod that deletes a saved object, so it is off and says
+            // so in the file, where somebody turning it on will read it. Everything else here
+            // writes a value the game already keeps. This removes what the generator made and
+            // generates the dungeon again from a new seed, so the layout changes as well as
+            // the contents.
+            NewDungeon = cfg.Bind("NewDungeon", "NewDungeon", false,
+                "OFF BY DEFAULT, and read this before turning it on. When a crypt or cave is "
+                + "due, instead of refilling it Dvala DELETES the objects the dungeon made "
+                + "(chests with whatever is in them, pots, doors, traps, creatures) and "
+                + "generates a whole new dungeon in its place: a different layout, all of it "
+                + "fresh. Nothing a player placed is touched, and neither is anything tamed or "
+                + "any dropped item, but a stash left in one of the dungeon's own chests is "
+                + "lost. It only runs when nobody is anywhere in the dungeon's zone, entrance "
+                + "included, so on a busy server it may rarely run. A player who logged out "
+                + "inside can come back in the wrong place. Mines, the Queen's room, Ashlands "
+                + "and camps are never replaced. Untested on a server.");
+
+            // Separate from HildirRooms on purpose: restocking those three brings their
+            // mini-boss back, and so does this, but this also changes the room the mini-boss
+            // is in and the way to it. The Sealed Tower stands on the ground, which is the
+            // least tested thing about all of this.
+            NewDungeonHildir = cfg.Bind("NewDungeon", "NewDungeonHildir", false,
+                "Also replace Hildir's three (the Sealed Tower, the Howling Cavern, the "
+                + "Smouldering Tomb) when NewDungeon is on. Off by default: a new layout "
+                + "brings the mini-boss back each time, and the Sealed Tower stands on the "
+                + "surface, where a rebuilt layout is the least tested. Needs HildirRooms on "
+                + "as well.");
 
             // Not synced by intent - see the plugin. A diagnostic flag is personal, and a
             // host turning on someone else's logging is not a thing anybody asked for.

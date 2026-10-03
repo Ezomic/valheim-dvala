@@ -3,6 +3,24 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- **New dungeon, opt-in.** `NewDungeon`, off by default, replaces a due crypt or cave with a
+  freshly generated one instead of refilling it: a new layout, with every chest, pot, door and
+  trap laid fresh. **This deletes saved objects, which Dvala has never done before.** It takes
+  only what the dungeon's own rooms and doors are made of, and never a placed piece, a tame or
+  a dropped item, but a stash left in one of the dungeon's own chests is lost. It runs only when
+  nobody is anywhere in the dungeon's zone, never touches mines, the Queen, Ashlands or camps,
+  and leaves Hildir's three out unless `NewDungeonHildir` is on too. A player who logged out
+  inside can come back in the wrong place. Not run in game yet, and the part that makes other
+  clients rebuild the new walls is unproven.
+- `dvala newdungeon` in the console replaces the dungeon whose entrance you stand at, for
+  testing one crypt without waiting for the timer. It needs `devcommands`.
+- A Devkit scenario that places a piece and drops an item in a crypt, replaces it, and checks
+  both survived.
+
 ## [1.0.2] - 2026-09-19
 
 ### Fixed

@@ -81,6 +81,7 @@ namespace Dvala
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(DvalaPatches));
             _harmony.PatchAll(typeof(Rearm));
+            _harmony.PatchAll(typeof(DevConsole.Hook));
 
             // The startup line every mod in the suite writes. It is how a log answers "which
             // build of what is actually loaded" without anyone guessing.
@@ -159,6 +160,8 @@ namespace Dvala
         {
             if (!DvalaConfig.Enabled.Value) return;
 
+            WatchShells();
+
             _since += Time.deltaTime;
             if (_since < Mathf.Max(1f, DvalaConfig.CheckSeconds.Value)) return;
             _since = 0f;
@@ -176,6 +179,37 @@ namespace Dvala
                              + "reported once: " + error);
             }
         }
+
+        /// <summary>
+        /// Two seconds, not the sweep's thirty: a client that has just seen a dungeon change
+        /// under it should not stand looking at the old walls for half a minute. Always on,
+        /// whatever this machine's own NewDungeon says, because the machine that regenerates
+        /// may be somebody else's.
+        /// </summary>
+        private void WatchShells()
+        {
+            _shellSince += Time.deltaTime;
+            if (_shellSince < 2f) return;
+            _shellSince = 0f;
+
+            if (ZNetScene.instance == null) return;
+
+            try
+            {
+                Shells.Watch();
+            }
+            catch (System.Exception error)
+            {
+                if (_shellFaulted) return;
+
+                _shellFaulted = true;
+                Log.LogError("Dvala's wall watch threw and will keep being attempted, but this "
+                             + "is reported once: " + error);
+            }
+        }
+
+        private float _shellSince;
+        private bool _shellFaulted;
 
         private void Sweep()
         {
@@ -203,10 +237,30 @@ namespace Dvala
 
                 if (today - stamped < due) continue;
 
+                // A new dungeon needs the whole zone empty, not only the rooms, and that is
+                // not optional the way SkipOccupied is: clients standing in the zone would be
+                // left with the old walls. Like the occupied check it leaves the stamp alone,
+                // so the dungeon comes back to this the moment the zone is clear.
+                bool fresh = DvalaConfig.NewDungeon.Value && Regenerate.Eligible(generator);
+                if (fresh && Regenerate.ZoneOccupied(generator, false)) continue;
+
                 // Occupied is asked last, so a dungeon somebody is standing in keeps its old
                 // stamp and comes back to this the moment they leave, rather than losing its
                 // turn for another thirty days.
-                if (DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator)) continue;
+                if (!fresh && DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator))
+                    continue;
+
+                if (fresh)
+                {
+                    // Stamp first, so a failure part way through is not retried every sweep.
+                    Dungeons.Stamp(generator, today);
+
+                    Regenerate.Outcome outcome = Regenerate.Run(generator);
+                    Log.LogInfo("New dungeon for " + Dungeons.Describe(generator) + " after "
+                                + (today - stamped) + " days: " + outcome + ".");
+
+                    if (outcome.Ok) continue;
+                }
 
                 Restore.Counts counts = Restore.Dungeon(generator);
 

@@ -1,0 +1,89 @@
+#! nostage
+# Dvala - a new dungeon replaces the dungeon's own contents and leaves yours alone.
+#
+# NewDungeon deletes saved objects, which nothing else in this mod does, so the first thing to
+# prove is the line it must never cross: what a player put in a dungeon is still there after it
+# has been replaced. Four claims, in this order:
+#
+#   1. A workbench placed in the crypt and three Stone dropped in it are really there, counted
+#      from inside (the control: without it claim 3 would pass for a piece that was never put
+#      down).
+#   2. `dvala newdungeon`, run from the entrance, says ok, says it removed something (a command
+#      that deleted nothing would pass claim 3 for the wrong reason) and says gen=1.
+#   3. Back inside, the workbench and the three Stone are both still there.
+#   4. Walking out again works, so the exit still leads back.
+#
+# Run it in SINGLEPLAYER. The crypt is a real one placed by ZoneSystem.TestSpawnLocation, as in
+# varda-pins-a-dungeon.txt, a hundred metres off from where the file starts, and the NO STAGE
+# line above is there for the reason that file gives. Dvala's own Crypts switch must be on.
+#
+# WHAT THIS CANNOT SEE.
+#
+#   - Whether the workbench stands inside one of the dungeon's room boxes. `place` drops it from
+#     8 m above the spot onto the first collider, so under a low ceiling it can land on top of
+#     the room's roof. Then Dvala never considered it and claim 3 proves little. The Verbose log
+#     says how many objects it took and kept. A piece whose prefab is also in the room set would
+#     be the sharper test and which those are cannot be known without a rip.
+#   - The other clients' walls. That needs a second client and a manual step, below.
+#   - The new layout being a different one. The log's rooms= and was= say how many rooms each
+#     had, and a human walking it says the rest.
+#
+# LEAVES: the regenerated crypt's contents. Devkit takes down what the `location` step made, by
+# ZDO id, when the run ends, and the objects the second generation made are new ids. Run this in
+# a test world and expect a crypt's worth of chests and spawners to stay until it is reloaded.
+#
+# MANUAL STEPS.
+#
+#   1. Two clients in one world, one in the zone's neighbour: stand a zone away so the crypt is
+#      loaded and nobody is in its zone, turn NewDungeon on in the host's cfg, and wait for it to
+#      come due (Days 1 and CheckSeconds 5 shorten that). Expected: the log of the client that
+#      replaced it says "New dungeon for", and the other client logs "Rebuilding the walls".
+#   2. Walk into it from the second client. Expected: the walls match the chests, not the old
+#      layout. If chests float in stone, the rebuild did not take and that path needs a second
+#      round.
+
+clear
+god
+ghost
+
+mark
+move 100
+landed
+
+location Crypt2
+wait 3
+
+enter
+landed
+wait 2
+
+place piece_workbench 2 0
+give Stone:3
+drop Stone
+wait 1
+count piece_workbench 1 8
+found Stone 3 8
+
+enter
+landed
+wait 2
+
+mod dvala newdungeon
+printed refused no
+printed ok yes
+printed removed=0 no
+printed gen=1 yes
+wait 3
+
+enter
+landed
+wait 3
+
+count piece_workbench 1 8
+found Stone 3 8
+
+enter
+landed
+
+back
+landed

@@ -4,9 +4,12 @@ Valheim's dungeons are one-shot. Once you have cleared a crypt it stays an empty
 the rest of the world's life. Dvala puts the contents back on a timer: a dungeon left alone
 for thirty in-game days fills up again.
 
-It restocks, it does not regenerate. Nothing here deletes a saved object, moves a wall or
+By default it restocks, it does not regenerate. Nothing deletes a saved object, moves a wall or
 re-rolls a layout. The rooms stay exactly as they are, and anything you built inside a dungeon
 is left alone.
+
+There is one opt-in exception, [New dungeon](#new-dungeon-opt-in), which does delete saved
+objects and does change the layout. It is off unless you turn it on.
 
 ## Features
 
@@ -86,6 +89,53 @@ only way to fight one again. It becomes the way to do it now rather than in thir
 The two mods do not conflict. Both re-arm the same spawner by clearing the same record, so
 whichever gets there first finds the work already done.
 
+## New dungeon (opt-in)
+
+**This deletes saved objects, which Dvala otherwise never does, and it is off by default.**
+Set `NewDungeon` to true and a crypt or cave that comes due is not refilled. The objects the
+dungeon made (chests with whatever is in them, pots, doors, traps, creatures) are deleted and
+the dungeon is generated again from a new seed: a different layout, every chest, pot, door and
+trap laid fresh. Walking in through the same entrance works as before, and the way out still
+leads back.
+
+What it touches, exactly. A saved object is deleted only if it is inside that dungeon's own
+rooms and is one of the networked prefabs those rooms and their doors are made from, or a
+creature one of their spawners made. On top of that it never deletes anything a player placed,
+anything tamed, or any dropped item.
+
+What it still costs you:
+
+- **A chest the dungeon made is deleted with whatever is in it**, including something you
+  stashed there. There is no telling an unlooted chest from one you have been using.
+- **It only runs when nobody is anywhere in the dungeon's zone**, the entrance included.
+  That is a deliberate limit, since other players would be left looking at the old walls. A
+  player has to be close enough to have the dungeon loaded and yet outside its zone, usually
+  one zone away, so on a busy server it may rarely run.
+- **A player who logged out inside comes back at their saved spot**, which in a new layout can
+  be inside a wall or over empty space. Do not log out in a dungeon you expect to be replaced.
+- **Replaced layouts are not stored as seeds.** The world only ever saved the finished
+  layout, so Dvala derives each new one from the old seed and a counter it keeps on the
+  dungeon. The counter is written into the world.
+- **It is untested on a server**, and the part that makes other clients rebuild a dungeon's
+  walls is unproven. See Status.
+
+Only crypts and caves are ever replaced (each only while its `Crypts` or `Caves` switch is
+on). Mines, the Queen's room, Ashlands and camps never are, and have no setting. Hildir's three
+are excluded by default too, with their own switch, `NewDungeonHildir`: a new layout brings the
+mini-boss back each time, and the Sealed Tower stands on the surface where this is least
+tested.
+
+If a new layout comes out poor (fewer than half the old room count, or missing a room the
+dungeon requires) it is rolled once more with the next seed.
+
+### Trying it on one dungeon
+
+In a test world, stand at the entrance of a crypt, outside it, open the console, type
+`devcommands`, then `dvala newdungeon`. It replaces that one dungeon now, whatever
+`NewDungeon` says, and prints what it removed. It refuses while you are inside the dungeon or
+while any other player is in its zone. `devcommands` marks your character as having cheated,
+which is why it is a test world.
+
 ## Installation
 
 Requires [BepInEx 5.4.2350](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/).
@@ -129,6 +179,13 @@ the file itself.
 | `Camps` | `false` | Fuling camps, Meadows villages and farms. These come out of the same generator as the dungeons but sit on the surface where people build, so restocking them means re-arming spawners next door to somebody's house. |
 | `KeepVeins` | `true` | Stop a fully mined vein inside a dungeon from deleting itself, so it can be restocked later. |
 
+### NewDungeon
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `NewDungeon` | `false` | **Deletes the dungeon's saved objects** and generates a new dungeon in place of a refill. Read [New dungeon](#new-dungeon-opt-in) first. |
+| `NewDungeonHildir` | `false` | Also replace Hildir's three when `NewDungeon` is on. Needs `HildirRooms` on as well. |
+
 Changing a default in a new version does nothing on a machine that has already run the mod.
 BepInEx writes every entry on the first run and the saved value wins, so edit the `.cfg` if you
 want a new default.
@@ -167,6 +224,13 @@ whether nothing was picked in the rooms tested or whether those particular picka
 class that is destroyed on pick rather than flagged.
 
 Untested in multiplayer.
+
+The new dungeon mode has **never been run in game**. It was written from the game's code and
+nothing else. In particular **unproven**: that destroying a dungeon's generator object, without
+its saved record, makes every other client build the new walls from the new layout. The plan
+is the same thing the game does to an object leaving view, but nobody has watched it work. In
+singleplayer the machine that replaces the dungeon builds its own walls and does not depend on
+it.
 
 ## Troubleshooting
 

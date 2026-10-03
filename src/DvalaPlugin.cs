@@ -81,10 +81,29 @@ namespace Dvala
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(DvalaPatches));
             _harmony.PatchAll(typeof(Rearm));
+            PatchOptional(typeof(DevConsole.Hook), "the dvala console command");
 
             // The startup line every mod in the suite writes. It is how a log answers "which
             // build of what is actually loaded" without anyone guessing.
             Log.LogInfo(PluginName + " " + PluginVersion + " by " + PluginAuthor + " - ready.");
+        }
+
+        /// <summary>
+        /// A patch the mod can live without, fenced so that a game update that renames its
+        /// target costs that feature and never the plugin: an unfenced PatchAll throws out of
+        /// Awake and the whole mod fails to load.
+        /// </summary>
+        private void PatchOptional(System.Type patch, string what)
+        {
+            try
+            {
+                _harmony.PatchAll(patch);
+            }
+            catch (System.Exception error)
+            {
+                Log.LogError("Could not patch in " + what + " (" + patch.Name + "), so it stays "
+                             + "out this session. Nothing else is affected. " + error.Message);
+            }
         }
 
         /// <summary>
@@ -159,6 +178,8 @@ namespace Dvala
         {
             if (!DvalaConfig.Enabled.Value) return;
 
+            WatchShells();
+
             _since += Time.deltaTime;
             if (_since < Mathf.Max(1f, DvalaConfig.CheckSeconds.Value)) return;
             _since = 0f;
@@ -176,6 +197,41 @@ namespace Dvala
                              + "reported once: " + error);
             }
         }
+
+        /// <summary>
+        /// Two seconds, not the sweep's thirty: a client that has just seen a dungeon change
+        /// under it should not stand looking at the old walls for half a minute. Gated on
+        /// NewDungeon, which Core syncs from the host, so the machine that regenerates may be
+        /// somebody else's and still every client that matters is watching, while a machine
+        /// with the setting off pays for no scene scan at all. (Without Core the value is each
+        /// player's own, and a client whose cfg differs from the host's will not rebuild.)
+        /// </summary>
+        private void WatchShells()
+        {
+            if (!DvalaConfig.NewDungeon.Value) return;
+
+            _shellSince += Time.deltaTime;
+            if (_shellSince < 2f) return;
+            _shellSince = 0f;
+
+            if (ZNetScene.instance == null) return;
+
+            try
+            {
+                Shells.Watch();
+            }
+            catch (System.Exception error)
+            {
+                if (_shellFaulted) return;
+
+                _shellFaulted = true;
+                Log.LogError("Dvala's wall watch threw and will keep being attempted, but this "
+                             + "is reported once: " + error);
+            }
+        }
+
+        private float _shellSince;
+        private bool _shellFaulted;
 
         private void Sweep()
         {
@@ -203,10 +259,58 @@ namespace Dvala
 
                 if (today - stamped < due) continue;
 
+                // A new dungeon needs the whole zone empty, not only the rooms, and that is
+                // not optional the way SkipOccupied is: clients standing in the zone would be
+                // left with the old walls. Like the occupied check it leaves the stamp alone,
+                // so the dungeon comes back to this the moment the zone is clear.
+                //
+                // Only the peer that owns the generator ZDO may do it. ClaimOwnership is not
+                // a lock, so two clients that both saw the zone empty would both regenerate
+                // with the same seed and double every chest, or delete each other's fresh
+                // objects. A peer that is not the owner leaves the dungeon alone entirely,
+                // restock included, since the owner is looking at the same dungeon.
+                //
+                // On a dedicated server this means it replaces a dungeon only while it owns the
+                // generator, which it does only for a zone a client has loaded; a dungeon no
+                // client is near is never touched, by this or by the ordinary restock.
+                bool fresh = DvalaConfig.NewDungeon.Value && Regenerate.Eligible(generator);
+                if (fresh)
+                {
+                    if (!generator.GetComponent<ZNetView>().IsOwner()) continue;
+
+                    if (Regenerate.ZoneOccupied(generator, false))
+                    {
+                        // A zone somebody always stands in would hold the dungeon back for
+                        // good, and without NewDungeon it would have been restocked. After
+                        // the grace it is, the ordinary way, and the next due date tries the
+                        // new dungeon again.
+                        if (!Regenerate.WaitedLongEnough(generator, today)) continue;
+
+                        Log.LogInfo("The zone of " + Dungeons.Describe(generator)
+                                    + " has not been empty for " + Regenerate.GraceDays
+                                    + " days, so it is restocked instead of replaced.");
+                        Regenerate.StopWaiting(generator);
+                        fresh = false;
+                    }
+                }
+
                 // Occupied is asked last, so a dungeon somebody is standing in keeps its old
                 // stamp and comes back to this the moment they leave, rather than losing its
                 // turn for another thirty days.
-                if (DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator)) continue;
+                if (!fresh && DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator))
+                    continue;
+
+                if (fresh)
+                {
+                    Regenerate.Outcome outcome = Regenerate.Run(generator, today, stamped);
+                    Log.LogInfo("New dungeon for " + Dungeons.Describe(generator) + " after "
+                                + (today - stamped) + " days: " + outcome + ".");
+
+                    if (outcome.Ok) continue;
+
+                    Log.LogWarning("Falling back to the ordinary restock for "
+                                   + Dungeons.Describe(generator) + ".");
+                }
 
                 Restore.Counts counts = Restore.Dungeon(generator);
 

@@ -259,6 +259,15 @@ namespace Dvala
 
                 if (today - stamped < due) continue;
 
+                // Pickups creates objects, so exactly one machine may do it. This is the same
+                // guard the new dungeon path uses and for the same reason: ClaimOwnership is
+                // not a lock, and a pickup spawned twice cannot be un-doubled. A peer that is
+                // not the owner leaves the dungeon alone entirely, stamp included, because
+                // stamping it would claim ownership and the real owner would then find it done.
+                if (DvalaConfig.Pickups.Value
+                    && !generator.GetComponent<ZNetView>().IsOwner())
+                    continue;
+
                 // A new dungeon needs the whole zone empty, not only the rooms, and that is
                 // not optional the way SkipOccupied is: clients standing in the zone would be
                 // left with the old walls. Like the occupied check it leaves the stamp alone,
@@ -313,6 +322,16 @@ namespace Dvala
                 }
 
                 Restore.Counts counts = Restore.Dungeon(generator);
+
+                // A chest that could not be refilled this pass leaves the dungeon unstamped, so
+                // the next sweep tries again rather than waiting thirty days. Everything else
+                // the pass does is idempotent, so the retry costs nothing.
+                if (counts.ChestsDeferred > 0)
+                {
+                    Log.LogInfo("Restocked " + Dungeons.Describe(generator) + " only in part: "
+                                + counts + ". It will be tried again on the next sweep.");
+                    continue;
+                }
 
                 Dungeons.Stamp(generator, today);
 

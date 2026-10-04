@@ -57,6 +57,11 @@ namespace Dvala
             internal int Chests;
             internal int Veins;
             internal int Spawners;
+            internal int Pickups;
+
+            // Chests that were due a refill and could not be given one this pass. Not an error
+            // to total: it is what tells the sweep to leave the dungeon unstamped and try again.
+            internal int ChestsDeferred;
 
             // How many of each kind were in the rooms at all, restored or not. Without this,
             // "pickables 0" has three possible meanings - none here, none picked, or the flag
@@ -66,14 +71,20 @@ namespace Dvala
             internal int VeinsSeen;
             internal int SpawnersSeen;
 
-            internal int Total => Pickables + Chests + Veins + Spawners;
+            // Pickups is how many destroyed pickups were spawned, PickupsSeen how many the room
+            // prefabs say should be there. The gap between them is what was never missing.
+            internal int PickupsSeen;
+
+            internal int Total => Pickables + Chests + Veins + Spawners + Pickups;
 
             public override string ToString()
             {
                 return "pickables " + Pickables + "/" + PickablesSeen
                        + ", chests " + Chests + "/" + ChestsSeen
                        + ", veins " + Veins + "/" + VeinsSeen
-                       + ", spawners " + Spawners + "/" + SpawnersSeen;
+                       + ", spawners " + Spawners + "/" + SpawnersSeen
+                       + ", pickups " + Pickups + "/" + PickupsSeen
+                       + (ChestsDeferred > 0 ? ", chests deferred " + ChestsDeferred : "");
             }
         }
 
@@ -91,6 +102,7 @@ namespace Dvala
             Chests(generator, ref counts);
             Veins(generator, ref counts);
             Spawners(generator, ref counts);
+            Pickups.Run(generator, ref counts);
 
             return counts;
         }
@@ -154,20 +166,32 @@ namespace Dvala
                 // somebody's storage and replacing it with crypt loot is the single worst
                 // thing this mod could do, so it refuses on either signal.
                 if (container.TryGetComponent(out Piece piece) && piece.GetCreator() != 0L)
+                {
+                    SkipChest(container, "placed by a player");
                     continue;
+                }
 
                 if (container.m_defaultItems == null
                     || container.m_defaultItems.m_drops == null
                     || container.m_defaultItems.m_drops.Count == 0)
                 {
+                    SkipChest(container, "no drop table");
                     continue;
                 }
 
                 ZNetView nview = container.GetComponent<ZNetView>();
-                if (nview == null || !nview.IsValid()) continue;
+                if (nview == null || !nview.IsValid())
+                {
+                    SkipChest(container, "no live ZDO");
+                    continue;
+                }
 
                 Inventory inventory = container.GetInventory();
-                if (inventory == null) continue;
+                if (inventory == null)
+                {
+                    SkipChest(container, "no inventory");
+                    continue;
+                }
 
                 counts.ChestsSeen++;
 
@@ -186,18 +210,92 @@ namespace Dvala
                 //
                 // And it makes the pass idempotent, which is what stops the repeat: a chest
                 // this fills is no longer empty, so the next sweep walks past it.
-                if (inventory.NrOfItems() > 0) continue;
+                //
+                // Asked of the ZDO as well as the component, and the ZDO is the one to trust.
+                // Container.Awake builds an EMPTY inventory and only fills it from the ZDO in
+                // CheckForChanges, a repeating call that first runs a frame later and then once
+                // a second (and not at all while somebody has the lid open). A chest reached in
+                // that window reads as empty with its loot sitting in the ZDO, and filling it
+                // then would overwrite the saved contents.
+                if (inventory.NrOfItems() > 0)
+                {
+                    SkipChest(container, "not empty (" + inventory.NrOfItems() + " items)");
+                    continue;
+                }
+
+                int saved = SavedItems(nview.GetZDO());
+                if (saved > 0)
+                {
+                    SkipChest(container, "not empty in the ZDO (" + saved + " items, the "
+                                         + "component has not loaded them yet)");
+                    continue;
+                }
 
                 nview.ClaimOwnership();
 
+                // Container.OnContainerChanged saves only when it is the owner, and a save it
+                // refuses is silent: the items sit in the component and never reach the ZDO.
+                // So a claim that has not taken is a refill that did not happen, and it is
+                // counted as one rather than as a success.
+                if (!nview.IsOwner())
+                {
+                    counts.ChestsDeferred++;
+                    SkipChest(container, "ownership not granted, will retry");
+                    continue;
+                }
+
+                int added = 0;
                 foreach (ItemDrop.ItemData item in container.m_defaultItems.GetDropListItems())
+                {
                     inventory.AddItem(item);
+                    added++;
+                }
+
+                // A drop table can roll nothing. That is a chest still empty, and calling it
+                // restored is how "the pass said it filled them" and "they are empty" can both
+                // be true.
+                if (added == 0)
+                {
+                    SkipChest(container, "the drop table rolled nothing");
+                    continue;
+                }
 
                 // No explicit save. Inventory raises m_onChanged, Container.OnContainerChanged
-                // marks it, and the CheckForChanges tick started in Awake writes it within a
-                // second - which is the same path a player closing the lid goes through.
+                // marks it, and writes the ZDO at once when this machine owns it - the same
+                // path a player closing the lid goes through. What is checked here is that the
+                // write really landed.
+                if (SavedItems(nview.GetZDO()) == 0)
+                {
+                    counts.ChestsDeferred++;
+                    SkipChest(container, "filled " + added + " items but the ZDO still reads "
+                                         + "empty, will retry");
+                    continue;
+                }
+
                 counts.Chests++;
             }
+        }
+
+        private static void SkipChest(Container container, string why)
+        {
+            if (!DvalaConfig.Verbose.Value) return;
+
+            DvalaPlugin.Log.LogInfo("  chest " + container.name + " at "
+                                    + container.transform.position + " skipped: " + why);
+        }
+
+        /// <summary>
+        /// How many items the ZDO says a container holds. Inventory.Save writes an int
+        /// version then a ushort count, so the count is the second field.
+        /// </summary>
+        private static int SavedItems(ZDO zdo)
+        {
+            byte[] bytes = zdo.GetByteArray(ZDOVars.s_items);
+            if (bytes == null || bytes.Length < 6) return 0;
+
+            var package = new ZPackage(bytes);
+            package.ReadInt();
+            return package.ReadUShort();
         }
 
         /// <summary>

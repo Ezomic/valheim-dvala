@@ -1,0 +1,59 @@
+#! nostage
+# Dvala - a restock does not double the pickups of a dungeon nobody has touched.
+#
+# The dangerous failure of Contents/Pickups is not a pickup that stays missing, it is a pickup
+# spawned twice, because a spawned object cannot be un-doubled. On a dungeon nobody has looted
+# every pickup the room prefabs describe already exists, so any spawn here means the walk found
+# a spot that is not where the game put it (wrong seed replay, wrong transform) or the ZDO list
+# it checks against was incomplete. Three claims:
+#
+#   1. `dvala restock` from the entrance says ok and reports pickups 0/N with N above zero.
+#      N above zero proves the walk found candidates at all (without it claim 2 passes for a
+#      mod that found nothing).
+#   2. A second restock reports pickups 0/N again.
+#   3. Walking in and out works afterwards.
+#
+# Run it in SINGLEPLAYER, with Dvala's Caves switch and Contents/Pickups on, in a test world.
+# The cave is placed by ZoneSystem.TestSpawnLocation as in the sibling scenarios. FrostCaves is
+# the location name expected; if `location` refuses it, use the name the game lists.
+#
+# WHAT THIS CANNOT SEE. Whether a pickup that was TAKEN comes back, which needs a hand:
+#
+#   1. Stand inside, take a hanging item or a pedestal piece, note where it was.
+#   2. Walk out to the entrance and run `dvala restock` (needs devcommands).
+#   3. Expected: the log says pickups 1/N, and walking back in finds the item in the same place.
+#   4. Run `dvala restock` again. Expected: pickups 0/N, nothing doubled.
+#   5. Take the same item and restock twice with a second client in the zone. Expected: only
+#      the owner of the dungeon reports pickups above zero.
+#
+# LEAVES: the cave, until the world is reloaded. Devkit takes down what `location` made.
+
+clear
+god
+ghost
+
+mark
+move 100
+landed
+
+location FrostCaves
+wait 3
+
+mod dvala restock
+printed refused no
+printed ok yes
+printed pickups 0/0 no
+printed pickups 0/ yes
+wait 2
+
+mod dvala restock
+printed refused no
+printed pickups 0/0 no
+printed pickups 0/ yes
+
+enter
+landed
+wait 2
+
+back
+landed

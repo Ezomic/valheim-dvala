@@ -31,7 +31,8 @@ namespace Dvala
                 _registered = true;
 
                 new Terminal.ConsoleCommand("dvala",
-                    "newdungeon - replace the dungeon whose entrance you stand at with a freshly "
+                    "restock - restock the dungeon whose entrance you stand at now, pickups included. "
+                    + "newdungeon - replace the dungeon whose entrance you stand at with a freshly "
                     + "generated one. Deletes that dungeon's saved objects; ignores the NewDungeon "
                     + "setting, never the theme and Hildir switches",
                     OnCommand, isCheat: true);
@@ -44,19 +45,47 @@ namespace Dvala
             if (term == null) return;
 
             string verb = args.Length > 1 ? args[1].ToLowerInvariant() : "";
+            if (verb == "restock")
+            {
+                term.AddString("dvala restock: " + Restock());
+                return;
+            }
+
             if (verb != "newdungeon")
             {
-                term.AddString("dvala: try 'dvala newdungeon' while standing at a dungeon entrance.");
+                term.AddString("dvala: try 'dvala newdungeon' or 'dvala restock' while standing at a dungeon entrance.");
                 return;
             }
 
             term.AddString("dvala newdungeon: " + Do());
         }
 
-        private static string Do()
+        private static string Restock()
         {
+            DungeonGenerator nearest = Nearest(out string refusal);
+            if (nearest == null) return refusal;
+
+            if (Dungeons.Occupied(nearest))
+                return "refused you are inside it, stand at the entrance outside the rooms";
+
+            if (!nearest.GetComponent<ZNetView>().IsOwner())
+                return "refused this machine does not own the dungeon";
+
+            Restore.Counts counts = Restore.Dungeon(nearest);
+            DvalaPlugin.Log.LogInfo("Command: restock " + Dungeons.Describe(nearest) + ": "
+                                    + counts + ".");
+            return "ok " + counts;
+        }
+
+        private static DungeonGenerator Nearest(out string refusal)
+        {
+            refusal = null;
             Player player = Player.m_localPlayer;
-            if (player == null || ZNetScene.instance == null) return "refused no player in a world";
+            if (player == null || ZNetScene.instance == null)
+            {
+                refusal = "refused no player in a world";
+                return null;
+            }
 
             Vector2s zone = ZoneSystem.GetZone(player.transform.position);
             DungeonGenerator nearest = null;
@@ -74,7 +103,14 @@ namespace Dvala
                 nearest = generator;
             }
 
-            if (nearest == null) return "refused no dungeon generator in this zone";
+            if (nearest == null) refusal = "refused no dungeon generator in this zone";
+            return nearest;
+        }
+
+        private static string Do()
+        {
+            DungeonGenerator nearest = Nearest(out string refusal);
+            if (nearest == null) return refusal;
 
             if (!Regenerate.Eligible(nearest))
                 return "refused " + nearest.name + " is not one the config lets this replace "

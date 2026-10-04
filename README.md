@@ -18,6 +18,11 @@ objects and does change the layout. It is off unless you turn it on.
   chests are touched.
 - **Pickables** reset to unpicked: berries, mushrooms, surtling cores, and the rest of what
   lies around on the floor.
+- **Pickups** that are destroyed when taken come back too: the hanging items and pedestal
+  pieces of the frost caves, and any other pickable with no flag to clear. Dvala rebuilds the
+  list from the dungeon's own room prefabs, the way the game lays it, and spawns what is
+  missing. Nothing is ever deleted, and what a player dropped is not touched. See
+  [Pickups](#pickups).
 - **Ore veins** heal back to full health, including the world level bonus.
 - **Spawners** are re-armed, but only where the creature they produced is provably gone.
   Re-arming a spawner whose draugr is still walking around would add a second one, and vanilla
@@ -45,13 +50,29 @@ around it. That matters for dungeons that stand on the ground, like Hildir's Sea
 box around the generator would reach into the Fuling camp next door and claim its contents
 too.
 
+## Pickups
+
+Two kinds of object are destroyed when a player takes them rather than flagged as taken:
+pickables with no respawn time and nothing to hide, and `PickableItem` pedestal and hanging
+pieces. Nothing is left in the world to reset, so the `Contents/Pickups` setting rebuilds them
+from the one record that survives, the room they were laid in.
+
+For each placed room Dvala reads the room's prefab the way the game does when it lays a
+dungeon, works out where each pickup stands from the room's position and rotation, and spawns
+the ones that have no object at that spot. The check is against every object the game has been
+told about in that area, not only the ones near you, so a pickup that is still there is never
+doubled and a second pass spawns nothing. A random item rolls again, so a restocked pedestal
+may hold something different.
+
+It only ever adds. While `Pickups` is on, only the player who owns the dungeon restocks it, so
+two players cannot both put the same pickup back. Rooms that choose between alternatives are
+replayed from the room's seed to find out which one this dungeon got; where that seed cannot be
+trusted (a `NewDungeon` dungeon seen by a player who did not generate it) those pickups are
+left out rather than guessed.
+
 ## What does not come back
 
-Two kinds of object are genuinely destroyed when a player takes them rather than flagged as
-taken, so nothing short of regenerating the room can restore them:
-
-- Pickables with no respawn time and nothing to hide. A few one-off props fall in this class.
-- `PickableItem` pedestal pieces, which keep no persistent record of themselves.
+- A vein mined out completely, unless `KeepVeins` is on, and a creature that is still alive.
 
 The Queen's room in an infested mine is never included and has no setting. She is a boss with
 a summoning ritual and a permanent global key, which is a different argument from a content
@@ -155,7 +176,8 @@ dungeon requires) it is rolled once more with the next seed.
 ### Trying it on one dungeon
 
 In a test world, stand at the entrance of a crypt, outside it, open the console, type
-`devcommands`, then `dvala newdungeon`. It replaces that one dungeon now, whatever
+`devcommands`, then `dvala newdungeon`. `dvala restock` does the ordinary restock of that
+dungeon now and prints what it put back, pickups included. It replaces that one dungeon now, whatever
 `NewDungeon` says, and prints what it removed. It refuses while you are inside the dungeon or
 while any other player is in its zone. `devcommands` marks your character as having cheated,
 which is why it is a test world.
@@ -202,6 +224,7 @@ the file itself.
 | `HildirRooms` | `true` | The Sealed Tower, the Howling Cavern and the Smouldering Tomb. |
 | `Camps` | `false` | Fuling camps, Meadows villages and farms. These come out of the same generator as the dungeons but sit on the surface where people build, so restocking them means re-arming spawners next door to somebody's house. |
 | `KeepVeins` | `true` | Stop a fully mined vein inside a dungeon from deleting itself, so it can be restocked later. |
+| `Pickups` | `true` | Put back pickups that are destroyed when taken, such as the frost caves' hanging items and pedestal pieces, rebuilt from the room prefabs. Only adds. While on, only the dungeon's owner restocks it. |
 
 ### NewDungeon
 

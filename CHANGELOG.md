@@ -7,6 +7,17 @@ and the mod uses [semantic versioning](https://semver.org).
 
 ### Added
 
+- **Pickups come back.** `Contents/Pickups`, on by default, puts back the hanging items and
+  pedestal pieces of the frost caves and any other pickable that is destroyed when taken, which
+  a restock could not do because nothing is left to reset. The list is rebuilt from the placed
+  rooms' own prefabs the way the game lays a dungeon, a pickup counts as missing when no object
+  of its kind is within three quarters of a metre of its spot, and only the missing ones are spawned, so a second
+  pass spawns nothing and a dropped item is never touched. Only the owner of the dungeon does
+  it, and while the setting is on only the owner restocks a dungeon at all. The restock log line
+  now reads `pickups spawned/expected`. `dvala restock` in the console runs the ordinary restock
+  on the dungeon you stand at, and a Devkit scenario checks that a fresh dungeon spawns nothing.
+  Not run in game yet.
+
 - **New dungeon, opt-in.** `NewDungeon`, off by default, replaces a due crypt or cave with a
   freshly generated one instead of refilling it: a new layout, with every chest, pot, door and
   trap laid fresh. **This deletes saved objects, which Dvala has never done before.** It takes
@@ -31,6 +42,18 @@ and the mod uses [semantic versioning](https://semver.org).
   testing one crypt without waiting for the timer. It needs `devcommands`.
 - A Devkit scenario that places a piece and drops an item in a crypt, replaces it, and checks
   both survived.
+
+### Fixed
+
+- **A restocked crypt could keep every chest empty with no sign why (LHM-68).** The chest pass
+  decided a chest was empty from the component, which fills itself from the saved record a
+  frame after it appears and then once a second, so a chest reached in that window looked empty
+  while holding loot. It now reads the saved record, and it no longer counts a refill as done
+  when the ownership claim had not taken, when the drop table rolled nothing, or when the write
+  did not reach the record. A chest that could not be refilled leaves the dungeon unstamped so
+  the next sweep retries it, instead of waiting thirty days. `Verbose` now logs one line per
+  chest skipped, with the reason. The cause of the report itself is a hypothesis until a game
+  test shows which skip it was.
 
 ## [1.0.2] - 2026-09-19
 

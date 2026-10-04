@@ -32,6 +32,7 @@ namespace Dvala
         internal static ConfigEntry<bool> HildirRooms;
         internal static ConfigEntry<bool> Camps;
         internal static ConfigEntry<bool> KeepVeins;
+        internal static ConfigEntry<bool> Pickups;
 
         internal static ConfigEntry<bool> NewDungeon;
         internal static ConfigEntry<bool> NewDungeonHildir;
@@ -128,6 +129,21 @@ namespace Dvala
                 + "it back in - and it costs the world exactly what a half-mined vein already "
                 + "costs it, one saved object. Interiors only: veins on the surface are never "
                 + "held back, whatever else is switched on here.");
+
+            // On, because the pickups people go to a cave for are exactly the ones that cannot
+            // be reset. A hanging item or a pedestal piece is destroyed when taken, so there is
+            // no flag to clear and nothing left to find; the only record of it is the room it
+            // was laid in. This reads the placed rooms' own prefabs and spawns what is missing,
+            // so a mod that edits a room is followed for free. It only ever creates, and it
+            // runs only on the machine that owns the dungeon, since two machines that both saw
+            // a pickup missing would both spawn it.
+            Pickups = cfg.Bind("Contents", "Pickups", true,
+                "Put back pickups that are destroyed when taken: the hanging items and pedestal "
+                + "pieces in the frost caves, and any other pickable with no picked flag. They "
+                + "are rebuilt from the dungeon's own room prefabs, and only ever added, never "
+                + "deleted. While this is on, only the peer that owns a dungeon restocks it, so "
+                + "two players cannot both spawn the same pickup. Off restocks only what has a "
+                + "flag to clear.");
 
             // The only setting in this mod that deletes a saved object, so it is off and says
             // so in the file, where somebody turning it on will read it. Everything else here

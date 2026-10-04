@@ -33,7 +33,7 @@ namespace Dvala
     {
         public const string PluginGuid = "ezomic.valheim.dvala";
         public const string PluginName = "Dvala";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
         public const string PluginAuthor = "Robbin Thijssen";
 
         /// <summary>Core's plugin GUID. Optional - see TryRegisterWithCore.</summary>
@@ -81,10 +81,29 @@ namespace Dvala
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(DvalaPatches));
             _harmony.PatchAll(typeof(Rearm));
+            PatchOptional(typeof(DevConsole.Hook), "the dvala console command");
 
             // The startup line every mod in the suite writes. It is how a log answers "which
             // build of what is actually loaded" without anyone guessing.
             Log.LogInfo(PluginName + " " + PluginVersion + " by " + PluginAuthor + " - ready.");
+        }
+
+        /// <summary>
+        /// A patch the mod can live without, fenced so that a game update that renames its
+        /// target costs that feature and never the plugin: an unfenced PatchAll throws out of
+        /// Awake and the whole mod fails to load.
+        /// </summary>
+        private void PatchOptional(System.Type patch, string what)
+        {
+            try
+            {
+                _harmony.PatchAll(patch);
+            }
+            catch (System.Exception error)
+            {
+                Log.LogError("Could not patch in " + what + " (" + patch.Name + "), so it stays "
+                             + "out this session. Nothing else is affected. " + error.Message);
+            }
         }
 
         /// <summary>
@@ -203,12 +222,30 @@ namespace Dvala
 
                 if (today - stamped < due) continue;
 
+                // Pickups creates objects, so exactly one machine may do it. ClaimOwnership is
+                // not a lock, and a pickup spawned twice cannot be un-doubled. A peer that is
+                // not the owner leaves the dungeon alone entirely, stamp included, because
+                // stamping it would claim ownership and the real owner would then find it done.
+                if (DvalaConfig.Pickups.Value
+                    && !generator.GetComponent<ZNetView>().IsOwner())
+                    continue;
+
                 // Occupied is asked last, so a dungeon somebody is standing in keeps its old
                 // stamp and comes back to this the moment they leave, rather than losing its
                 // turn for another thirty days.
                 if (DvalaConfig.SkipOccupied.Value && Dungeons.Occupied(generator)) continue;
 
                 Restore.Counts counts = Restore.Dungeon(generator);
+
+                // A chest that could not be refilled this pass leaves the dungeon unstamped, so
+                // the next sweep tries again rather than waiting thirty days. Everything else
+                // the pass does is idempotent, so the retry costs nothing.
+                if (counts.ChestsDeferred > 0)
+                {
+                    Log.LogInfo("Restocked " + Dungeons.Describe(generator) + " only in part: "
+                                + counts + ". It will be tried again on the next sweep.");
+                    continue;
+                }
 
                 Dungeons.Stamp(generator, today);
 

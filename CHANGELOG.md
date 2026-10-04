@@ -3,6 +3,33 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
+## [1.0.3] - 2026-10-05
+
+### Added
+
+- **Pickups come back (LHM-67).** `Contents/Pickups`, on by default, puts back the hanging items
+  and pedestal pieces of the frost caves, and any other pickable that is destroyed when taken.
+  A restock could not do this before because nothing is left to reset. The list is rebuilt from
+  the placed rooms' own prefabs the way the game lays a dungeon. A pickup counts as missing when
+  no object of its kind is within three quarters of a metre of its spot, and only the missing
+  ones are spawned, so a second pass spawns nothing and a dropped item is never touched. Only
+  the owner of the dungeon does it, and while the setting is on only the owner restocks a
+  dungeon at all. The restock log line now reads `pickups spawned/expected`.
+- `dvala restock` in the console runs the ordinary restock on the dungeon you stand at. A Devkit
+  scenario checks that a fresh dungeon spawns nothing.
+
+### Fixed
+
+- **A restocked crypt could keep every chest empty with no sign why (LHM-68).** The chest pass
+  decided a chest was empty from the component, which fills itself from the saved record a frame
+  after it appears and then once a second, so a chest reached in that window looked empty while
+  holding loot. It now reads the saved record. It also no longer counts a refill as done when the
+  ownership claim had not taken, when the drop table rolled nothing, or when the write did not
+  reach the record. A chest that could not be refilled leaves the dungeon unstamped, so the next
+  sweep retries it instead of waiting thirty days. `Verbose` logs one line per chest skipped, with
+  the reason. The cause of the original report is a hypothesis until a game test shows which skip
+  it was.
+
 ## [1.0.2] - 2026-09-19
 
 ### Fixed

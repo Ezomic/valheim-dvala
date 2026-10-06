@@ -196,6 +196,9 @@ namespace Dvala
             }
         }
 
+        private readonly System.Collections.Generic.HashSet<string> _graveLogged =
+            new System.Collections.Generic.HashSet<string>();
+
         private void Sweep()
         {
             // Both are absent in the main menu and for a while after a world starts loading.
@@ -221,6 +224,21 @@ namespace Dvala
                 }
 
                 if (today - stamped < due) continue;
+
+                // A gravestone in the rooms stops every kind of reset, always: it holds a
+                // player's inventory, and spawners re-armed around it kill whoever comes back
+                // for it. Not a setting, because there is no good reason to turn it off. The
+                // stamp is left alone so the dungeon is retried on the next sweep, and the
+                // reason is logged once per dungeon rather than every thirty seconds.
+                if (Dungeons.HoldsTombstone(generator))
+                {
+                    if (DvalaConfig.Verbose.Value && _graveLogged.Add(Dungeons.Describe(generator)))
+                        Log.LogInfo(Dungeons.Describe(generator) + " is due but a gravestone "
+                                    + "stands in its rooms, so it is left alone until it is collected.");
+                    continue;
+                }
+
+                _graveLogged.Remove(Dungeons.Describe(generator));
 
                 // Pickups creates objects, so exactly one machine may do it. ClaimOwnership is
                 // not a lock, and a pickup spawned twice cannot be un-doubled. A peer that is

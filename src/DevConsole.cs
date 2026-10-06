@@ -55,6 +55,9 @@ namespace Dvala
             if (Dungeons.Occupied(nearest))
                 return "refused you are inside it, stand at the entrance outside the rooms";
 
+            if (Dungeons.HoldsTombstone(nearest))
+                return "refused a gravestone stands in its rooms";
+
             if (!nearest.GetComponent<ZNetView>().IsOwner())
                 return "refused this machine does not own the dungeon";
 

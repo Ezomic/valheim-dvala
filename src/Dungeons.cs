@@ -199,6 +199,30 @@ namespace Dvala
         }
 
         /// <summary>
+        /// Whether a player's gravestone stands inside this dungeon's rooms.
+        ///
+        /// A restock re-arms spawners and refills chests, and a gravestone is the one thing in
+        /// a dungeon that holds a player's whole inventory, so nothing may be reset around it
+        /// until it is collected. Only loaded gravestones are visible to FindObjectsOfType,
+        /// which is enough: the sweep reaches a dungeon only while its generator is loaded, and
+        /// its rooms and everything in them load with it. Regenerate asks the same question
+        /// for a new layout and has its own count, because it also tallies other things.
+        /// </summary>
+        internal static bool HoldsTombstone(DungeonGenerator generator)
+        {
+            TombStone[] stones = UnityEngine.Object.FindObjectsOfType<TombStone>();
+            if (stones.Length == 0) return false;
+
+            foreach (TombStone stone in stones)
+            {
+                if (stone == null) continue;
+                if (Inside(generator, stone.transform.position)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Whether a point is inside one of this generator's placed rooms.
         ///
         /// In the room's own space, not the world's. Rooms are placed at whatever rotation the

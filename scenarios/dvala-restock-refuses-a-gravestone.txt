@@ -1,0 +1,49 @@
+#! nostage
+# Dvala - a restock never happens around a player's gravestone.
+#
+# The sweep skips a due dungeon with a gravestone in its rooms and leaves the stamp alone. The
+# sweep itself cannot be made due from a scenario, so this drives `dvala restock`, which asks
+# the same Dungeons.HoldsTombstone question. Two claims:
+#
+#   1. With a gravestone placed inside the crypt, `dvala restock` from the entrance says refused
+#      and names a gravestone.
+#   2. (By hand, there is no remove verb.) Pick the gravestone up, run `dvala restock` again.
+#      Expected: ok.
+#
+# Run it in SINGLEPLAYER, with Dvala's Crypts switch on. As in the sibling scenarios `place`
+# drops from 8 m above onto the first collider, so under a low ceiling the stone can land on
+# the roof outside every room box, and then claim 1 fails for a placement reason.
+# UNTESTED in game: the prefab name Player_tombstone is assumed.
+
+clear
+god
+ghost
+
+mark
+move 100
+landed
+
+location Crypt2
+wait 3
+
+enter
+landed
+wait 2
+
+place Player_tombstone 2 0
+wait 1
+
+enter
+landed
+wait 2
+
+mod dvala restock
+printed refused yes
+printed gravestone yes
+wait 2
+
+enter
+landed
+
+back
+landed

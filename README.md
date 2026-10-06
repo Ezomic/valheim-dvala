@@ -133,6 +133,11 @@ the file itself.
 
 ### Dvala
 
+**A gravestone is never restocked around.** Whatever the settings, a dungeon with a player's
+gravestone in its rooms is skipped, and tried again on the next sweep once it is collected. A
+grave holds a whole inventory, and spawners re-armed around it would kill whoever comes back.
+There is no setting for it.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `Enabled` | `true` | Off leaves the plugin loaded and changing nothing. |

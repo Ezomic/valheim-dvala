@@ -3,6 +3,15 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+
+- **A gravestone stops a restock.** A due dungeon with a player's gravestone anywhere in its
+  rooms is left alone, stamp included, and tried again on the next sweep, so spawners are never
+  re-armed around a grave before it is collected. Always on, no setting. `dvala restock` refuses
+  the same way. Verbose logs one line per dungeon. Not run in game yet. (LHM-74)
+
 ## [1.0.3] - 2026-10-05
 
 ### Added

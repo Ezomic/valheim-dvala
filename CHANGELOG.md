@@ -3,6 +3,20 @@
 Notable changes to Dvala. Format follows [Keep a Changelog](https://keepachangelog.com),
 and the mod uses [semantic versioning](https://semver.org).
 
+## [1.1.0] - 2026-10-11
+
+### Added
+
+- **The winding tunnels and Mörkhalla are restocked.** Both are new in Valheim 1.0, and a dungeon
+  whose room theme was not in Dvala's list was left alone with nothing logged, so neither ever came
+  back (site bug 3). `Contents/Tunnels` and `Contents/Morkhalla`, both on by default, switch them.
+  A Devkit scenario places each and checks they are covered and restock. Whether an emptied chest
+  and a mined ore vein come back inside them is not yet checked by hand.
+- `dvala wanted` and `dvala scan` in the console. `wanted` says whether the config covers the dungeon
+  whose entrance you stand at and prints its room theme; `scan` lists every dungeon generator the
+  game has loaded, networked or not, which is how to tell a dungeon that is not there from one Dvala
+  cannot see. They need `devcommands`.
+
 ## [1.0.4] - 2026-10-06
 
 ### Fixed

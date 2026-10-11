@@ -29,6 +29,8 @@ namespace Dvala
         internal static ConfigEntry<bool> Caves;
         internal static ConfigEntry<bool> Mines;
         internal static ConfigEntry<bool> Ashlands;
+        internal static ConfigEntry<bool> Tunnels;
+        internal static ConfigEntry<bool> Morkhalla;
         internal static ConfigEntry<bool> HildirRooms;
         internal static ConfigEntry<bool> Camps;
         internal static ConfigEntry<bool> KeepVeins;
@@ -94,6 +96,17 @@ namespace Dvala
 
             Ashlands = cfg.Bind("Contents", "Ashlands", true,
                 "Ashlands ruins and fortresses.");
+
+            // Both new in Valheim 1.0, and both missing from the mask until 2026-10-11, when a
+            // player reported that neither came back (bug 3 on the site). Room.Theme.Hole is the
+            // winding tunnels and Room.Theme.MorkHalla is Morkhalla; a dungeon whose theme is
+            // not in the mask is not a dungeon this mod knows about, so it is left alone, and
+            // nothing logged says so.
+            Tunnels = cfg.Bind("Contents", "Tunnels", true,
+                "The winding tunnels, a dungeon type new in Valheim 1.0.");
+
+            Morkhalla = cfg.Bind("Contents", "Morkhalla", true,
+                "Morkhalla, a dungeon type new in Valheim 1.0, with its chests and ore veins.");
 
             // On, and it changes what a sibling mod is for, so it is worth stating rather than
             // discovering. Lur sells a horn that wakes one of these three on the spot. With
@@ -195,6 +208,8 @@ namespace Dvala
             if (Caves.Value) mask |= Room.Theme.Cave;
             if (Mines.Value) mask |= Room.Theme.DvergerTown;
             if (Ashlands.Value) mask |= Room.Theme.AshlandRuins | Room.Theme.FortressRuins;
+            if (Tunnels.Value) mask |= Room.Theme.Hole;
+            if (Morkhalla.Value) mask |= Room.Theme.MorkHalla;
 
             if (HildirRooms.Value) mask |= Room.Theme.ForestCryptHildir | Room.Theme.CaveHildir
                                            | Room.Theme.PlainsFortHildir;

@@ -155,6 +155,8 @@ There is no setting for it.
 | `Caves` | `true` | Troll caves and mountain frost caves. |
 | `Mines` | `true` | Mistlands infested mines. The Queen's own room is never included. |
 | `Ashlands` | `true` | Ashlands ruins and fortresses. |
+| `Tunnels` | `true` | The winding tunnels, new in Valheim 1.0. |
+| `Morkhalla` | `true` | Morkhalla, new in Valheim 1.0. |
 | `HildirRooms` | `true` | The Sealed Tower, the Howling Cavern and the Smouldering Tomb. |
 | `Camps` | `false` | Fuling camps, Meadows villages and farms. These come out of the same generator as the dungeons but sit on the surface where people build, so restocking them means re-arming spawners next door to somebody's house. |
 | `KeepVeins` | `true` | Stop a fully mined vein inside a dungeon from deleting itself, so it can be restocked later. |

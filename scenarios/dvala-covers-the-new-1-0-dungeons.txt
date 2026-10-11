@@ -17,11 +17,12 @@
 #      hand and 30 in-game days, below.
 #
 # NAMES. `location` takes the name ZoneSystem lists. WindingTunnels and Morkhalla, the first
-# guesses, were refused on 2026-10-11 ("no location name contains it"). Morkborg is what Robbin saw
-# in Devkit's Locations pane for Morkhalla. Filtering the pane on "hole" lists three: TheHole,
-# TheDarkestHole and MorgenHole. Which of them the players call the winding tunnels is not known,
-# so all three are run; they should share one theme. If `location` refuses one, open the Locations
-# pane, find the dungeon, and put its name here.
+# guesses, were refused on 2026-10-11 ("no location name contains it"). The names the game accepts,
+# from Devkit's own "did you mean" on the second run: TheHole01, MorgenHole1 (2 and 3 also exist)
+# and MorkBorg with a capital B. Which of the hole dungeons the players call the winding tunnels is
+# not known; they should share one theme. TheDarkestHole was accepted but left no dungeon
+# generator in its zone, so it is not run. If `location` refuses one, open the Locations pane, find
+# the dungeon, and put its name here.
 #
 # Run it in SINGLEPLAYER in a test world, with Dvala's Tunnels and Morkhalla switches on (they are
 # by default). Switch either off in the cfg and the matching claim 2 must read covered=no, which is
@@ -42,8 +43,8 @@ mark
 move 100
 landed
 
-location TheHole
-wait 3
+location TheHole01
+wait 6
 
 mod dvala wanted
 printed refused no
@@ -60,8 +61,8 @@ mark
 move 100
 landed
 
-location TheDarkestHole
-wait 3
+location MorgenHole1
+wait 6
 
 mod dvala wanted
 printed refused no
@@ -78,26 +79,8 @@ mark
 move 100
 landed
 
-location MorgenHole
-wait 3
-
-mod dvala wanted
-printed refused no
-printed covered=yes yes
-
-mod dvala restock
-printed refused no
-printed ok yes
-
-back
-landed
-
-mark
-move 100
-landed
-
-location Morkborg
-wait 3
+location MorkBorg
+wait 6
 
 mod dvala wanted
 printed refused no

@@ -16,9 +16,11 @@
 #      without refusing. It does not prove the chests, pickups or ore veins come back; that needs a
 #      hand and 30 in-game days, below.
 #
-# NAMES. `location` takes the name ZoneSystem lists, and these two are read off the asset
-# manifest, not off a running world: WindingTunnels and Morkhalla. If `location` refuses one, open
-# Devkit's Locations pane, find the dungeon, and put its name here.
+# NAMES. `location` takes the name ZoneSystem lists. WindingTunnels and Morkhalla, the first
+# guesses, were refused on 2026-10-11 ("no location name contains it"). Morkborg is what Robbin saw
+# in Devkit's Locations pane for Morkhalla; TheHole is a guess for the winding tunnels, read off
+# the asset manifest and not yet confirmed. If `location` refuses one, open the Locations pane,
+# find the dungeon, and put its name here.
 #
 # Run it in SINGLEPLAYER in a test world, with Dvala's Tunnels and Morkhalla switches on (they are
 # by default). Switch either off in the cfg and the matching claim 2 must read covered=no, which is
@@ -39,7 +41,7 @@ mark
 move 100
 landed
 
-location WindingTunnels
+location TheHole
 wait 3
 
 mod dvala wanted
@@ -57,7 +59,7 @@ mark
 move 100
 landed
 
-location Morkhalla
+location Morkborg
 wait 3
 
 mod dvala wanted

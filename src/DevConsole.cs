@@ -32,6 +32,8 @@ namespace Dvala
 
                 new Terminal.ConsoleCommand("dvala",
                     "restock - restock the dungeon whose entrance you stand at now, pickups included. "
+                    + "wanted - whether the config covers the dungeon whose entrance you stand at, "
+                    + "by its room themes, which is the test a visit restocks by. "
                     + "newdungeon - replace the dungeon whose entrance you stand at with a freshly "
                     + "generated one. Deletes that dungeon's saved objects; ignores the NewDungeon "
                     + "setting, never the theme and Hildir switches",
@@ -51,6 +53,12 @@ namespace Dvala
                 return;
             }
 
+            if (verb == "wanted")
+            {
+                term.AddString("dvala wanted: " + Wanted());
+                return;
+            }
+
             if (verb != "newdungeon")
             {
                 term.AddString("dvala: try 'dvala newdungeon' or 'dvala restock' while standing at a dungeon entrance.");
@@ -58,6 +66,15 @@ namespace Dvala
             }
 
             term.AddString("dvala newdungeon: " + Do());
+        }
+
+        private static string Wanted()
+        {
+            DungeonGenerator nearest = Nearest(out string refusal);
+            if (nearest == null) return refusal;
+
+            return "name=" + nearest.name.Replace("(Clone)", "") + " themes=" + (int)nearest.m_themes
+                   + " covered=" + (Dungeons.Wanted(nearest) ? "yes" : "no");
         }
 
         private static string Restock()

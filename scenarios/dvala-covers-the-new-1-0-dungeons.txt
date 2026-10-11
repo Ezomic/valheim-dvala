@@ -1,0 +1,72 @@
+#! nostage
+# Dvala - the winding tunnels and Morkhalla are dungeons it restocks (site bug 3).
+#
+# Both are new in Valheim 1.0 and their room themes (Hole, MorkHalla) were missing from the mask
+# Dvala tests a dungeon against, so neither ever came back and nothing said why. The mask is what
+# decides it: `dvala wanted` asks that test directly for the dungeon at the nearest entrance and
+# prints covered=yes or covered=no, with the numeric theme bits.
+#
+# For each dungeon, three claims:
+#
+#   1. `dvala wanted` finds a generator at all (a refusal means the location never placed one, or
+#      the name below is not what this game calls it - see NAMES).
+#   2. covered=yes. This is the claim the fix is for. covered=no on a themes value of 16384 (Hole)
+#      or 131072 (MorkHalla) is the bug back.
+#   3. `dvala restock` from the entrance says ok, so the whole restore walks that dungeon's rooms
+#      without refusing. It does not prove the chests, pickups or ore veins come back; that needs a
+#      hand and 30 in-game days, below.
+#
+# NAMES. `location` takes the name ZoneSystem lists, and these two are read off the asset
+# manifest, not off a running world: WindingTunnels and Morkhalla. If `location` refuses one, open
+# Devkit's Locations pane, find the dungeon, and put its name here.
+#
+# Run it in SINGLEPLAYER in a test world, with Dvala's Tunnels and Morkhalla switches on (they are
+# by default). Switch either off in the cfg and the matching claim 2 must read covered=no, which is
+# the cheap way to prove the setting does something.
+#
+# WHAT THIS CANNOT SEE. Whether the contents return. By hand: go in, empty a chest and mine an ore
+# vein, leave, set the game day 30 ahead (Devkit), walk back in. Expected: the chest is full and
+# the vein is whole. If the rooms restock but a chest stays empty, the dungeon's chests are not a
+# kind Dvala refills, and that is a second bug, not this one.
+#
+# LEAVES: the two dungeons, until the world is reloaded. Devkit takes down what `location` made.
+
+clear
+god
+ghost
+
+mark
+move 100
+landed
+
+location WindingTunnels
+wait 3
+
+mod dvala wanted
+printed refused no
+printed covered=yes yes
+
+mod dvala restock
+printed refused no
+printed ok yes
+
+back
+landed
+
+mark
+move 100
+landed
+
+location Morkhalla
+wait 3
+
+mod dvala wanted
+printed refused no
+printed covered=yes yes
+
+mod dvala restock
+printed refused no
+printed ok yes
+
+back
+landed

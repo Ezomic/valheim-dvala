@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 
@@ -32,6 +33,7 @@ namespace Dvala
 
                 new Terminal.ConsoleCommand("dvala",
                     "restock - restock the dungeon whose entrance you stand at now, pickups included. "
+                    + "scan - every dungeon generator loaded, networked or not. "
                     + "wanted - whether the config covers the dungeon whose entrance you stand at, "
                     + "by its room themes, which is the test a visit restocks by. "
                     + "newdungeon - replace the dungeon whose entrance you stand at with a freshly "
@@ -53,6 +55,16 @@ namespace Dvala
                 return;
             }
 
+            if (verb == "scan")
+            {
+                foreach (string line in Scan())
+                {
+                    term.AddString("dvala scan: " + line);
+                    DvalaPlugin.Log.LogInfo("scan: " + line);
+                }
+                return;
+            }
+
             if (verb == "wanted")
             {
                 term.AddString("dvala wanted: " + Wanted());
@@ -66,6 +78,42 @@ namespace Dvala
             }
 
             term.AddString("dvala newdungeon: " + Do());
+        }
+
+        /// <summary>
+        /// Every DungeonGenerator the game has loaded, networked or not, nearest first. Dungeons.Live
+        /// only returns the networked ones, so a dungeon whose generator has no ZDO is invisible to
+        /// the mod and to `dvala wanted`; this is how to tell "not there" from "there and not seen".
+        /// </summary>
+        private static List<string> Scan()
+        {
+            var lines = new List<string>();
+            Player player = Player.m_localPlayer;
+            if (player == null) { lines.Add("refused no player in a world"); return lines; }
+
+            DungeonGenerator[] all = Object.FindObjectsOfType<DungeonGenerator>(true);
+            var rows = new List<KeyValuePair<float, string>>();
+
+            foreach (DungeonGenerator generator in all)
+            {
+                if (generator == null) continue;
+
+                Vector3 apart = generator.transform.position - player.transform.position;
+                apart.y = 0f;
+
+                ZNetView nview = generator.GetComponent<ZNetView>();
+                string net = nview == null ? "none" : (nview.IsValid() ? "valid" : "invalid");
+
+                rows.Add(new KeyValuePair<float, string>(apart.magnitude,
+                    "name=" + generator.name.Replace("(Clone)", "") + " themes=" + (int)generator.m_themes
+                    + " znetview=" + net + " active=" + (generator.gameObject.activeInHierarchy ? "yes" : "no")
+                    + " away=" + Mathf.RoundToInt(apart.magnitude) + "m y=" + Mathf.RoundToInt(generator.transform.position.y)));
+            }
+
+            rows.Sort((x, y) => x.Key.CompareTo(y.Key));
+            lines.Add("count=" + rows.Count);
+            for (int i = 0; i < rows.Count && i < 12; i++) lines.Add(rows[i].Value);
+            return lines;
         }
 
         private static string Wanted()

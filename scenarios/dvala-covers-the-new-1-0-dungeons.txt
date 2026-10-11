@@ -46,6 +46,7 @@ landed
 location TheHole01
 wait 6
 
+mod dvala scan
 mod dvala wanted
 printed refused no
 printed covered=yes yes
@@ -64,6 +65,7 @@ landed
 location MorgenHole1
 wait 6
 
+mod dvala scan
 mod dvala wanted
 printed refused no
 printed covered=yes yes
@@ -82,6 +84,7 @@ landed
 location MorkBorg
 wait 6
 
+mod dvala scan
 mod dvala wanted
 printed refused no
 printed covered=yes yes
